@@ -14,7 +14,8 @@ let currentView = 'info-obra';
 let donutChart = null;
 let chartPrincipal = null;
 let chartSecundario = null;
-let graficosDados = {}; // Armazena as séries cronogramadas
+let fullGraficosDados = {}; // Armazena todos os dados originais
+let filteredGraficosDados = {}; // Armazena os dados filtrados para exibicao
 
 async function fetchData() {
     try {
@@ -30,7 +31,6 @@ async function fetchData() {
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
-        renderDashGraf();
     } catch (error) {
         console.error('Erro ao buscar dados:', error);
     }
@@ -68,14 +68,11 @@ function parseCSV(text) {
 function renderDashboard(rows) {
     if (!rows || rows.length === 0) return;
 
-    // Busca hiper-dinâmica com limite de coluna
     const findVal = (label) => {
         const target = label.toLowerCase().replace(/\s/g, '');
         for (const row of rows) {
             for (let c = 0; c < row.length - 1; c++) {
                 if (row[c] && row[c].toLowerCase().replace(/\s/g, '').includes(target)) {
-                    // Para Padrão, Zoneamento, Tipologia (coluna 1 original)
-                    // Pega estritamente a próxima coluna válida (não mais que 2 de distância para evitar pegar a direita)
                     if (row[c+1] && row[c+1].trim() !== '') return row[c+1].trim();
                     if (row[c+2] && row[c+2].trim() !== '' && c+2 < 4) return row[c+2].trim();
                     if (row[c+3] && row[c+3].trim() !== '' && c+3 < 4) return row[c+3].trim();
@@ -98,7 +95,6 @@ function renderDashboard(rows) {
         return '--';
     };
 
-    // --- TABELA PRINCIPAL (ESQUERDA) ---
     const tableEl = document.getElementById('info-obra-table');
     const tableData = [
         { label: 'Custo Total da Obra (CTO)', val: findVal('Custo Total da Obra'), class: 'row-cost' },
@@ -126,7 +122,6 @@ function renderDashboard(rows) {
         </tr>
     `).join('');
 
-    // --- PRAZOS (DIREITA) ---
     const prazosContainer = document.getElementById('prazos-container');
     const prazos = [
         { label: 'Início', val: findVal('Início'), class: '' },
@@ -142,7 +137,6 @@ function renderDashboard(rows) {
         </div>
     `).join('');
 
-    // --- TERMÔMETRO ---
     const termVal = findTermometro();
     document.getElementById('termometro-container').innerHTML = `
         <div class="thermometer-value" style="color: ${termVal.includes('-') ? '#f43f5e' : '#10b981'};">
@@ -150,7 +144,6 @@ function renderDashboard(rows) {
         </div>
     `;
 
-    // --- SERVIÇOS (DONUT) ---
     const getStatusServicos = () => {
         let foundSection = false;
         for (let i = 0; i < rows.length; i++) {
@@ -169,7 +162,6 @@ function renderDashboard(rows) {
         <div class="legend-item"><span class="legend-label">Pendente</span><span class="legend-value">${pendServ}</span></div>
     `;
 
-    // --- CAMINHO CRÍTICO ---
     const getStatusCritico = () => {
         let foundSection = false;
         for (let i = 0; i < rows.length; i++) {
@@ -217,23 +209,15 @@ function px(valStr) {
     if (valStr === undefined || valStr === null) return null;
     let s = valStr.toString().trim();
     if (s === '' || s === '--' || s === '0,00%' || s === 'R$ 0,00') return null;
-    
-    // Remove R$, %, pontos de milhar, espaços
     s = s.replace('R$', '').replace('%', '').replace(/\s/g, '');
-    
-    // No formato brasileiro 1.234,56 -> removemos o ponto e trocamos a virgula por ponto
-    // Se houver ponto E virgula, ou se a virgula estiver no final
-    if (s.includes(',') && s.includes('.')) {
-        s = s.replace(/\./g, '');
-    }
+    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '');
     s = s.replace(',', '.');
-    
     const n = parseFloat(s);
     return (isNaN(n) || n === 0 && valStr.length === 0) ? null : n;
 }
 
 function processarDadosGraficos(rows) {
-    graficosDados = {
+    fullGraficosDados = {
         labels: [],
         fis_mes: [], fis_acum: [],
         med_mes: [], med_acum: [],
@@ -251,25 +235,56 @@ function processarDadosGraficos(rows) {
         const hasData = row[9] || row[15] || row[21];
 
         if (hasLabel && hasData) {
-            graficosDados.labels.push(label);
-            graficosDados.fis_mes.push(px(row[9]));
-            graficosDados.fis_acum.push(px(row[10]));
-            graficosDados.med_mes.push(px(row[11]));
-            graficosDados.med_acum.push(px(row[12]));
-            graficosDados.desvio_prog.push(px(row[14]));
-            graficosDados.fin_mes.push(px(row[15]));
-            graficosDados.fin_acum.push(px(row[16]));
-            graficosDados.des_mes.push(px(row[17]));
-            graficosDados.des_acum.push(px(row[18]));
-            graficosDados.saldo_mes.push(px(row[19]));
-            graficosDados.saldo_acum.push(px(row[20]));
-            graficosDados.custo_unit.push(px(row[21]));
-            graficosDados.custo_unit_acum.push(px(row[22]));
+            fullGraficosDados.labels.push(label);
+            fullGraficosDados.fis_mes.push(px(row[9]));
+            fullGraficosDados.fis_acum.push(px(row[10]));
+            fullGraficosDados.med_mes.push(px(row[11]));
+            fullGraficosDados.med_acum.push(px(row[12]));
+            fullGraficosDados.desvio_prog.push(px(row[14]));
+            fullGraficosDados.fin_mes.push(px(row[15]));
+            fullGraficosDados.fin_acum.push(px(row[16]));
+            fullGraficosDados.des_mes.push(px(row[17]));
+            fullGraficosDados.des_acum.push(px(row[18]));
+            fullGraficosDados.saldo_mes.push(px(row[19]));
+            fullGraficosDados.saldo_acum.push(px(row[20]));
+            fullGraficosDados.custo_unit.push(px(row[21]));
+            fullGraficosDados.custo_unit_acum.push(px(row[22]));
         }
     }
+    popularFiltrosDatas();
+    aplciarFiltroDatas();
+}
+
+function popularFiltrosDatas() {
+    const selInicio = document.getElementById('select-data-inicio');
+    const selFim = document.getElementById('select-data-fim');
+    if (selInicio.options.length > 0) return;
+    fullGraficosDados.labels.forEach((label, idx) => {
+        selInicio.add(new Option(label, idx));
+        selFim.add(new Option(label, idx));
+    });
+    selInicio.value = 0;
+    selFim.value = fullGraficosDados.labels.length - 1;
+}
+
+function aplciarFiltroDatas() {
+    const idxInicio = parseInt(document.getElementById('select-data-inicio').value);
+    const idxFim = parseInt(document.getElementById('select-data-fim').value);
+    if (idxInicio > idxFim) {
+        alert("A data de início não pode ser posterior à data de fim.");
+        document.getElementById('select-data-inicio').value = 0;
+        aplciarFiltroDatas();
+        return;
+    }
+    filteredGraficosDados = { labels: [] };
+    Object.keys(fullGraficosDados).forEach(key => {
+        filteredGraficosDados[key] = fullGraficosDados[key].slice(idxInicio, idxFim + 1);
+    });
+    renderDashGraf();
 }
 
 function renderDashGraf() {
+    if (!filteredGraficosDados.labels || filteredGraficosDados.labels.length === 0) return;
     renderChartGeneric('chartPrincipal', 'select-graf-principal');
     renderChartGeneric('chartSecundario', 'select-graf-secundario');
 }
@@ -283,7 +298,7 @@ function renderChartGeneric(canvasId, selectId) {
 
     let config = { 
         type: 'line', 
-        data: { labels: graficosDados.labels, datasets: [] }, 
+        data: { labels: filteredGraficosDados.labels, datasets: [] }, 
         options: getChartOptions(tipo) 
     };
 
@@ -292,46 +307,46 @@ function renderChartGeneric(canvasId, selectId) {
     switch(tipo) {
         case 'curva-s-fisica':
             config.data.datasets = [
-                { label: 'FIS Acumulado (%)', data: graficosDados.fis_acum, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, ...commonLine },
-                { label: 'MED Acumulado (%)', data: graficosDados.med_acum, borderColor: '#10b981', borderDash: [5, 5], ...commonLine }
+                { label: 'FIS Acumulado (%)', data: filteredGraficosDados.fis_acum, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, ...commonLine },
+                { label: 'MED Acumulado (%)', data: filteredGraficosDados.med_acum, borderColor: '#10b981', borderDash: [5, 5], ...commonLine }
             ];
             break;
         case 'histograma-fisico':
             config.type = 'bar';
             config.data.datasets = [
-                { label: 'FIS Mensal (%)', data: graficosDados.fis_mes, backgroundColor: '#3b82f6' },
-                { label: 'MED Mensal (%)', data: graficosDados.med_mes, backgroundColor: '#10b981' }
+                { label: 'FIS Mensal (%)', data: filteredGraficosDados.fis_mes, backgroundColor: '#3b82f6' },
+                { label: 'MED Mensal (%)', data: filteredGraficosDados.med_mes, backgroundColor: '#10b981' }
             ];
             break;
         case 'curva-s-financeira':
             config.data.datasets = [
-                { label: 'FIN Acumulado (R$)', data: graficosDados.fin_acum, borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', fill: true, ...commonLine },
-                { label: 'DES Acumulado (R$)', data: graficosDados.des_acum, borderColor: '#f59e0b', borderDash: [5, 5], ...commonLine }
+                { label: 'FIN Acumulado (R$)', data: filteredGraficosDados.fin_acum, borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', fill: true, ...commonLine },
+                { label: 'DES Acumulado (R$)', data: filteredGraficosDados.des_acum, borderColor: '#f59e0b', borderDash: [5, 5], ...commonLine }
             ];
             break;
         case 'histograma-financeiro':
             config.type = 'bar';
             config.data.datasets = [
-                { label: 'FIN Mensal (R$)', data: graficosDados.fin_mes, backgroundColor: '#f43f5e' },
-                { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
+                { label: 'FIN Mensal (R$)', data: filteredGraficosDados.fin_mes, backgroundColor: '#f43f5e' },
+                { label: 'DES Mensal (R$)', data: filteredGraficosDados.des_mes, backgroundColor: '#f59e0b' }
             ];
             break;
         case 'saldo-mensal':
             config.type = 'bar';
-            config.data.datasets = [{ label: 'Saldo Mensal (R$)', data: graficosDados.saldo_mes, backgroundColor: '#10b981' }];
+            config.data.datasets = [{ label: 'Saldo Mensal (R$)', data: filteredGraficosDados.saldo_mes, backgroundColor: '#10b981' }];
             break;
         case 'saldo-acumulado':
-            config.data.datasets = [{ label: 'Saldo Acumulado (R$)', data: graficosDados.saldo_acum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, ...commonLine }];
+            config.data.datasets = [{ label: 'Saldo Acumulado (R$)', data: filteredGraficosDados.saldo_acum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, ...commonLine }];
             break;
         case 'desvio-progresso':
-            config.data.datasets = [{ label: 'Desvio Acumulado (%)', data: graficosDados.desvio_prog, borderColor: '#f43f5e', ...commonLine }];
+            config.data.datasets = [{ label: 'Desvio Acumulado (%)', data: filteredGraficosDados.desvio_prog, borderColor: '#f43f5e', ...commonLine }];
             break;
         case 'custo-unitario':
             config.type = 'bar';
-            config.data.datasets = [{ label: 'Custo Unitário (R$/m²)', data: graficosDados.custo_unit, backgroundColor: '#8b5cf6' }];
+            config.data.datasets = [{ label: 'Custo Unitário (R$/m²)', data: filteredGraficosDados.custo_unit, backgroundColor: '#8b5cf6' }];
             break;
         case 'custo-unitario-acum':
-            config.data.datasets = [{ label: 'Custo Unit. Acum. (R$/m²)', data: graficosDados.custo_unit_acum, borderColor: '#8b5cf6', ...commonLine }];
+            config.data.datasets = [{ label: 'Custo Unit. Acum. (R$/m²)', data: filteredGraficosDados.custo_unit_acum, borderColor: '#8b5cf6', ...commonLine }];
             break;
     }
 
@@ -384,6 +399,15 @@ function getChartOptions(tipo) {
 document.getElementById('select-graf-principal').addEventListener('change', () => renderChartGeneric('chartPrincipal', 'select-graf-principal'));
 document.getElementById('select-graf-secundario').addEventListener('change', () => renderChartGeneric('chartSecundario', 'select-graf-secundario'));
 
+// Eventos de Filtro de Data
+document.getElementById('select-data-inicio').addEventListener('change', aplciarFiltroDatas);
+document.getElementById('select-data-fim').addEventListener('change', aplciarFiltroDatas);
+document.getElementById('btn-reset-filter').addEventListener('click', () => {
+    document.getElementById('select-data-inicio').value = 0;
+    document.getElementById('select-data-fim').value = fullGraficosDados.labels.length - 1;
+    aplciarFiltroDatas();
+});
+
 function switchView(viewId) {
     currentView = viewId;
     document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
@@ -394,7 +418,7 @@ function switchView(viewId) {
     } else {
         document.getElementById('view-dash-graf').style.display = 'block';
         document.getElementById('link-dash-graf').classList.add('active');
-        if (dashGrafData.length > 0) renderDashGraf(); // Renderiza caso a aba seja aberta
+        if (fullGraficosDados.labels && fullGraficosDados.labels.length > 0) renderDashGraf(); 
     }
 }
 
