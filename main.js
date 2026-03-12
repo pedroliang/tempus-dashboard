@@ -2,8 +2,9 @@ const SHEET_ID = '1ERU7rfuO6WmtTdD2q3lmDEnX9WZxDAEnYF5xYqjLNvw';
 const GID_INFO = '1077098301';
 const GID_GRAF = '130998217'; // DASH DADOS
 
-const INFO_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_INFO}`)}`;
-const GRAF_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_GRAF}`)}`;
+// Gviz supports CORS naturally and does not require third party proxy services
+const INFO_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_INFO}`;
+const GRAF_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_GRAF}&tq=select%20*`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -21,11 +22,11 @@ async function fetchData() {
             fetch(INFO_URL),
             fetch(GRAF_URL)
         ]);
-        const jsonInfo = await resInfo.json();
-        const jsonGraf = await resGraf.json();
+        const textInfo = await resInfo.text();
+        const textGraf = await resGraf.text();
         
-        sheetData = parseCSV(jsonInfo.contents);
-        dashGrafData = parseCSV(jsonGraf.contents);
+        sheetData = parseCSV(textInfo);
+        dashGrafData = parseCSV(textGraf);
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
