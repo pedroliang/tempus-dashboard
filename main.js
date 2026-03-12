@@ -1,19 +1,35 @@
 const SHEET_ID = '1ERU7rfuO6WmtTdD2q3lmDEnX9WZxDAEnYF5xYqjLNvw';
-const GID = '1077098301';
-const RAW_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
-const SHEET_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(RAW_URL)}`;
+const GID_INFO = '1077098301';
+const GID_GRAF = '130998217'; // DASH DADOS
 
-let charts = {};
-let donutChart = null;
+const INFO_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_INFO}`)}`;
+const GRAF_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_GRAF}`)}`;
+
 let sheetData = [];
+let dashGrafData = [];
 let currentView = 'info-obra';
+
+// Referências Globais do Chart.js
+let donutChart = null;
+let chartPrincipal = null;
+let chartSecundario = null;
+let graficosDados = {}; // Armazena as séries cronogramadas
 
 async function fetchData() {
     try {
-        const response = await fetch(SHEET_URL);
-        const json = await response.json();
-        sheetData = parseCSV(json.contents);
+        const [resInfo, resGraf] = await Promise.all([
+            fetch(INFO_URL),
+            fetch(GRAF_URL)
+        ]);
+        const jsonInfo = await resInfo.json();
+        const jsonGraf = await resGraf.json();
+        
+        sheetData = parseCSV(jsonInfo.contents);
+        dashGrafData = parseCSV(jsonGraf.contents);
+        
         renderDashboard(sheetData);
+        processarDadosGraficos(dashGrafData);
+        renderDashGraf();
     } catch (error) {
         console.error('Erro ao buscar dados:', error);
     }
@@ -196,6 +212,121 @@ function renderDonutChart(percent) {
     });
 }
 
+function px(valStr) {
+    if(!valStr) return 0;
+    let s = valStr.replace('R$', '').replace('%','').trim();
+    // Se for negativo e.g "-R$ " 
+    if(valStr.includes('-R$')) s = '-' + valStr.replace('-R$', '').replace('%','').trim();
+    s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+}
+
+function processarDadosGraficos(rows) {
+    graficosDados = {
+        labels: [],
+        fis_mes: [], fis_acum: [],
+        med_mes: [], med_acum: [],
+        fin_mes: [], fin_acum: [],
+        des_mes: [], des_acum: []
+    };
+
+    for(let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        // As linhas de dados contem o Mes e a Data na col 7 e 8
+        if (row[7] && row[8] && row[7].includes('/202')) {
+            graficosDados.labels.push(row[8]); // ex: 'abr./25'
+            graficosDados.fis_mes.push(px(row[9]));
+            graficosDados.fis_acum.push(px(row[10]));
+            graficosDados.med_mes.push(px(row[11]));
+            graficosDados.med_acum.push(px(row[12]));
+            graficosDados.fin_mes.push(px(row[15]));
+            graficosDados.fin_acum.push(px(row[16]));
+            graficosDados.des_mes.push(px(row[17]));
+            graficosDados.des_acum.push(px(row[18]));
+        }
+    }
+}
+
+function renderDashGraf() {
+    renderChartPrincipal();
+    renderChartSecundario();
+}
+
+function renderChartPrincipal() {
+    const ctx = document.getElementById('chartPrincipal').getContext('2d');
+    const tipo = document.getElementById('select-graf-principal').value;
+    if (chartPrincipal) chartPrincipal.destroy();
+
+    let config = { type: 'line', data: { labels: graficosDados.labels, datasets: [] }, options: getChartOptions() };
+
+    if (tipo === 'curva-s') {
+        config.data.datasets = [
+            { label: 'FIS Acumulado (%)', data: graficosDados.fis_acum, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 },
+            { label: 'MED Acumulado (%)', data: graficosDados.med_acum, borderColor: '#10b981', borderDash: [5, 5], tension: 0.4 }
+        ];
+    } else if (tipo === 'curva-s-dia') {
+        config.type = 'bar';
+        config.data.datasets = [
+            { label: 'FIS Mensal (%)', data: graficosDados.fis_mes, backgroundColor: '#8b5cf6' }
+        ];
+    } else if (tipo === 'comparativo-mensal') {
+        config.type = 'bar';
+        config.data.datasets = [
+            { label: 'FIN Mensal (R$)', data: graficosDados.fin_mes, backgroundColor: '#f43f5e' },
+            { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
+        ];
+    }
+
+    chartPrincipal = new Chart(ctx, config);
+}
+
+function renderChartSecundario() {
+    const ctx = document.getElementById('chartSecundario').getContext('2d');
+    const tipo = document.getElementById('select-graf-secundario').value;
+    if (chartSecundario) chartSecundario.destroy();
+
+    let config = { type: 'bar', data: { labels: graficosDados.labels, datasets: [] }, options: getChartOptions() };
+
+    if (tipo === 'histograma') {
+        config.data.datasets = [
+            { label: 'MED Mensal (%)', data: graficosDados.med_mes, backgroundColor: '#10b981' }
+        ];
+    } else if (tipo === 'histograma-acumulado') {
+        config.type = 'line';
+        config.data.datasets = [
+            { label: 'MED Acum (%)', data: graficosDados.med_acum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.4 }
+        ];
+    } else if (tipo === 'receita-saldo') {
+        config.data.datasets = [
+            { label: 'FIN Acum (R$)', data: graficosDados.fin_acum, backgroundColor: '#f43f5e' }
+        ];
+    } else if (tipo === 'distribuicao-recursos') {
+        config.data.datasets = [
+            { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
+        ];
+    }
+
+    chartSecundario = new Chart(ctx, config);
+}
+
+function getChartOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        elements: { point: { radius: 3, hoverRadius: 6 } },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+        },
+        plugins: { legend: { labels: { color: '#f8fafc', font: { family: 'Inter', size: 12 } } } }
+    };
+}
+
+// Eventos de Dropdown
+document.getElementById('select-graf-principal').addEventListener('change', renderChartPrincipal);
+document.getElementById('select-graf-secundario').addEventListener('change', renderChartSecundario);
+
 function switchView(viewId) {
     currentView = viewId;
     document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
@@ -206,35 +337,12 @@ function switchView(viewId) {
     } else {
         document.getElementById('view-dash-graf').style.display = 'block';
         document.getElementById('link-dash-graf').classList.add('active');
-        updateComparisonCharts();
+        if (dashGrafData.length > 0) renderDashGraf(); // Renderiza caso a aba seja aberta
     }
-}
-
-function updateComparisonCharts() {
-    renderComparison('chart-canvas-1', document.getElementById('chart-select-1').value, 1);
-    renderComparison('chart-canvas-2', document.getElementById('chart-select-2').value, 2);
-}
-
-function renderComparison(canvasId, type, slot) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    if (charts[slot]) charts[slot].destroy();
-    charts[slot] = new Chart(ctx, {
-        type: type === 'curva-s' ? 'line' : 'bar',
-        data: {
-            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
-            datasets: [{
-                label: type === 'curva-s' ? 'Progresso' : 'Recursos',
-                data: [10, 30, 50, 45, 70, 90],
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                tension: 0.4
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } } }
-    });
 }
 
 document.getElementById('link-info-obra').addEventListener('click', () => switchView('info-obra'));
 document.getElementById('link-dash-graf').addEventListener('click', () => switchView('dash-graf'));
+
 fetchData();
 setInterval(fetchData, 60000);

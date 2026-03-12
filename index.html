@@ -89,17 +89,38 @@
 
         <!-- ABA: DASH GRAF -->
         <div id="view-dash-graf" class="view-container">
-            <!-- Estrutura simplificada ou mantida -->
-            <div class="dashboard-grid">
-                <div class="panel">
-                    <h2 class="panel-header">Comparativo Mensal</h2>
-                    <select id="chart-select-1"><option value="curva-s">Curva S</option><option value="histograma">Histograma</option></select>
-                    <div style="height: 300px;"><canvas id="chart-canvas-1"></canvas></div>
+            <div class="dashboard-grid dash-graf-grid">
+                <!-- Gráfico Principal (Largo) -->
+                <div class="panel graf-panel principal">
+                    <div class="graf-header">
+                        <h2>Análise de Desempenho</h2>
+                        <select id="select-graf-principal" class="graf-select">
+                            <option value="curva-s">Curva S (Progresso)</option>
+                            <option value="curva-s-dia">Curva S Diária</option>
+                            <option value="comparativo-mensal">Comparativo Mensal (Geral)</option>
+                            <option value="comparativo-mensal-priv">Comparativo Mensal (Privada)</option>
+                            <option value="comparativo-mensal-npriv">Comparativo Mensal (Não Privada)</option>
+                        </select>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="chartPrincipal"></canvas>
+                    </div>
                 </div>
-                <div class="panel">
-                    <h2 class="panel-header">Distribuição de Recursos</h2>
-                    <select id="chart-select-2"><option value="histograma">Histograma</option><option value="curva-s">Curva S</option></select>
-                    <div style="height: 300px;"><canvas id="chart-canvas-2"></canvas></div>
+
+                <!-- Gráfico Secundário (Estreito/Distribuição) -->
+                <div class="panel graf-panel secundario">
+                    <div class="graf-header">
+                        <h2>Distribuição</h2>
+                        <select id="select-graf-secundario" class="graf-select">
+                            <option value="histograma">Histograma de Recursos</option>
+                            <option value="histograma-acumulado">Histograma Acumulado</option>
+                            <option value="receita-saldo">Receita e Saldo</option>
+                            <option value="distribuicao-recursos">Dist. de Recursos</option>
+                        </select>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="chartSecundario"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
