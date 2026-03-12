@@ -1,0 +1,184 @@
+:root {
+    --bg-deep: #0b0f19;
+    --panel-bg: rgba(30, 41, 59, .7);
+    --panel-border: rgba(255, 255, 255, .1);
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    --border-radius: 16px;
+}
+
+body {
+    background: radial-gradient(circle at top right,#1e1b4b,#0b0f19 60%);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar Adaptada ao novo estilo */
+.sidebar {
+    width: 200px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    height: 100vh;
+    border-right: 1px solid var(--panel-border);
+    position: fixed;
+    z-index: 100;
+}
+
+.sidebar-logo {
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-align: center;
+    padding: 2rem 0;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.8rem 1.5rem;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.nav-link.active { 
+    color: white; 
+    background: rgba(255, 255, 255, 0.05); 
+    border-left: 4px solid #6366f1; 
+}
+
+.main-content {
+    margin-left: 200px;
+    flex: 1;
+    padding: 2rem 2rem;
+    max-width: 1400px;
+    box-sizing: border-box;
+}
+
+.dashboard-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 3rem;
+}
+
+/* Painéis Estilo Vidro */
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px #0000004d;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.panel:hover { transform: translateY(-4px); box-shadow: 0 12px 40px #0006; }
+
+.panel-header {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--panel-border);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.panel-header:before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 20px;
+    background-color: #6366f1;
+    border-radius: 4px;
+}
+
+/* Tabelas de Dados */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+}
+.data-table td { padding: 0.8rem 1rem; background: #ffffff08; font-size: 0.95rem; }
+.data-table td:first-child { border-radius: 8px 0 0 8px; font-weight: 500; color: #cbd5e1; }
+.data-table td:last-child { border-radius: 0 8px 8px 0; text-align: right; font-weight: 600; color: #f8fafc; }
+.data-table tr:hover td { background: #ffffff14; }
+
+/* Bordas de Seção */
+.row-cost td { border-left: 4px solid #f43f5e; }
+.row-area td { border-left: 4px solid #10b981; }
+.row-metric td { border-left: 4px solid #3b82f6; }
+
+/* Grid Layout */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+.left-column, .right-column { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* Termômetro */
+.thermometer-value {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 1rem 0;
+    text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+/* Gráfico de Rosca */
+.donut-chart-container { display: flex; align-items: center; gap: 2rem; padding: 1rem 0; }
+.donut-wrapper { position: relative; width: 100px; height: 100px; }
+.donut-legend { display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+.legend-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+.legend-label { color: #94a3b8; font-weight: 500; }
+.legend-value { font-weight: 600; color: #f8fafc; }
+.legend-value.highlight { color: #f59e0b; }
+
+/* Cards de Prazo */
+.schedule-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+.schedule-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: #ffffff08;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, .05);
+}
+.schedule-card .schedule-label { font-size: 0.85rem; font-weight: 500; color: #94a3b8; text-transform: uppercase; }
+.schedule-card .schedule-value { font-weight: 700; color: #f8fafc; }
+.schedule-card.danger { background: #ef44441a; border-color: #ef444433; }
+.schedule-card.danger .schedule-label, .schedule-card.danger .schedule-value { color: #ef4444; }
+.schedule-card.info { background: #38bdf81a; border-color: #38bdf833; }
+.schedule-card.info .schedule-label, .schedule-card.info .schedule-value { color: #38bdf8; }
+
+/* Barras de Progresso */
+.linear-progress-container { display: flex; flex-direction: column; gap: 1.5rem; }
+.progress-item { display: flex; flex-direction: column; gap: 0.5rem; }
+.progress-header { display: flex; justify-content: space-between; align-items: center; }
+.progress-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
+.progress-value { font-size: 0.85rem; font-weight: 700; color: #f8fafc; }
+.progress-value.highlight { color: #f59e0b; }
+.progress-track { width: 100%; height: 8px; background: #ffffff0d; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: #ffffff33; border-radius: 4px; transition: width 1s ease; }
+.progress-fill.highlight-fill { background: #f59e0b; box-shadow: 0 0 10px #f59e0b80; }
+
+.view-container { display: none; }

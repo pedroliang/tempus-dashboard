@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEMPUS - Dashboard Inteligente</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">TEMPUS</div>
+        <nav>
+            <a href="#" class="nav-link active" id="link-info-obra">INFO OBRA</a>
+            <a href="#" class="nav-link" id="link-dash-graf">DASH GRAF</a>
+            <a href="#" class="nav-link">GANTT CRON MED</a>
+            <a href="#" class="nav-link">GANTT CRON DIN</a>
+            <a href="#" class="nav-link">MED</a>
+            <a href="#" class="nav-link">DES</a>
+            <a href="#" class="nav-link">ANÁLISE</a>
+            <a href="#" class="nav-link">DIN</a>
+            <a href="#" class="nav-link">FIN</a>
+            <a href="#" class="nav-link">DIF</a>
+        </nav>
+    </div>
+
+    <main class="main-content">
+        <div class="dashboard-header">
+            <h1>Tempus Dashboard</h1>
+        </div>
+
+        <!-- ABA: INFO OBRA (Reconstruída com Design de Referência) -->
+        <div id="view-info-obra" class="view-container" style="display: block;">
+            <div class="dashboard-grid">
+                
+                <!-- Coluna Esquerda: Informações Principais -->
+                <div class="left-column">
+                    <div class="panel">
+                        <h2 class="panel-header">Informações da Obra</h2>
+                        <table class="data-table" id="info-obra-table">
+                            <!-- Injetado via JS -->
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Prazos, Financeiro e Status -->
+                <div class="right-column">
+                    <!-- Painel Prazos -->
+                    <div class="panel">
+                        <h2 class="panel-header">Prazos da Obra</h2>
+                        <div class="schedule-cards" id="prazos-container">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Painel Termômetro Financeiro -->
+                    <div class="panel">
+                        <h2 class="panel-header">Termômetro Financeiro</h2>
+                        <div id="termometro-container" class="thermometer-value">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Painel Serviços de Obra -->
+                    <div class="panel">
+                        <h2 class="panel-header">Serviços de Obra</h2>
+                        <div class="donut-chart-container">
+                            <div class="donut-wrapper">
+                                <canvas id="donut-servicos"></canvas>
+                            </div>
+                            <div class="donut-legend" id="servicos-legend">
+                                <!-- Injetado via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Painel Caminho Crítico -->
+                    <div class="panel">
+                        <h2 class="panel-header">Caminho Crítico</h2>
+                        <div class="linear-progress-container" id="caminho-critico-container">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ABA: DASH GRAF -->
+        <div id="view-dash-graf" class="view-container">
+            <!-- Estrutura simplificada ou mantida -->
+            <div class="dashboard-grid">
+                <div class="panel">
+                    <h2 class="panel-header">Comparativo Mensal</h2>
+                    <select id="chart-select-1"><option value="curva-s">Curva S</option><option value="histograma">Histograma</option></select>
+                    <div style="height: 300px;"><canvas id="chart-canvas-1"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2 class="panel-header">Distribuição de Recursos</h2>
+                    <select id="chart-select-2"><option value="histograma">Histograma</option><option value="curva-s">Curva S</option></select>
+                    <div style="height: 300px;"><canvas id="chart-canvas-2"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="main.js"></script>
+</body>
+</html>
