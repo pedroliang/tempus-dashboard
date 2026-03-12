@@ -214,13 +214,22 @@ function renderDonutChart(percent) {
 }
 
 function px(valStr) {
-    if(!valStr) return 0;
-    let s = valStr.replace('R$', '').replace('%','').trim();
-    // Se for negativo e.g "-R$ " 
-    if(valStr.includes('-R$')) s = '-' + valStr.replace('-R$', '').replace('%','').trim();
-    s = s.replace(/\./g, '').replace(',', '.');
+    if (valStr === undefined || valStr === null) return null;
+    let s = valStr.toString().trim();
+    if (s === '' || s === '--' || s === '0,00%' || s === 'R$ 0,00') return null;
+    
+    // Remove R$, %, pontos de milhar, espaços
+    s = s.replace('R$', '').replace('%', '').replace(/\s/g, '');
+    
+    // No formato brasileiro 1.234,56 -> removemos o ponto e trocamos a virgula por ponto
+    // Se houver ponto E virgula, ou se a virgula estiver no final
+    if (s.includes(',') && s.includes('.')) {
+        s = s.replace(/\./g, '');
+    }
+    s = s.replace(',', '.');
+    
     const n = parseFloat(s);
-    return isNaN(n) ? 0 : n;
+    return (isNaN(n) || n === 0 && valStr.length === 0) ? null : n;
 }
 
 function processarDadosGraficos(rows) {
@@ -228,105 +237,152 @@ function processarDadosGraficos(rows) {
         labels: [],
         fis_mes: [], fis_acum: [],
         med_mes: [], med_acum: [],
+        desvio_prog: [],
         fin_mes: [], fin_acum: [],
-        des_mes: [], des_acum: []
+        des_mes: [], des_acum: [],
+        saldo_mes: [], saldo_acum: [],
+        custo_unit: [], custo_unit_acum: []
     };
 
     for(let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        // As linhas de dados contem o Mes e a Data na col 7 e 8
-        if (row[7] && row[8] && row[7].includes('/202')) {
-            graficosDados.labels.push(row[8]); // ex: 'abr./25'
+        const label = row[8];
+        const hasLabel = label && (label.includes('/') || label.includes('.'));
+        const hasData = row[9] || row[15] || row[21];
+
+        if (hasLabel && hasData) {
+            graficosDados.labels.push(label);
             graficosDados.fis_mes.push(px(row[9]));
             graficosDados.fis_acum.push(px(row[10]));
             graficosDados.med_mes.push(px(row[11]));
             graficosDados.med_acum.push(px(row[12]));
+            graficosDados.desvio_prog.push(px(row[14]));
             graficosDados.fin_mes.push(px(row[15]));
             graficosDados.fin_acum.push(px(row[16]));
             graficosDados.des_mes.push(px(row[17]));
             graficosDados.des_acum.push(px(row[18]));
+            graficosDados.saldo_mes.push(px(row[19]));
+            graficosDados.saldo_acum.push(px(row[20]));
+            graficosDados.custo_unit.push(px(row[21]));
+            graficosDados.custo_unit_acum.push(px(row[22]));
         }
     }
 }
 
 function renderDashGraf() {
-    renderChartPrincipal();
-    renderChartSecundario();
+    renderChartGeneric('chartPrincipal', 'select-graf-principal');
+    renderChartGeneric('chartSecundario', 'select-graf-secundario');
 }
 
-function renderChartPrincipal() {
-    const ctx = document.getElementById('chartPrincipal').getContext('2d');
-    const tipo = document.getElementById('select-graf-principal').value;
-    if (chartPrincipal) chartPrincipal.destroy();
+function renderChartGeneric(canvasId, selectId) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const tipo = document.getElementById(selectId).value;
+    
+    let chartRef = (canvasId === 'chartPrincipal') ? chartPrincipal : chartSecundario;
+    if (chartRef) chartRef.destroy();
 
-    let config = { type: 'line', data: { labels: graficosDados.labels, datasets: [] }, options: getChartOptions() };
+    let config = { 
+        type: 'line', 
+        data: { labels: graficosDados.labels, datasets: [] }, 
+        options: getChartOptions(tipo) 
+    };
 
-    if (tipo === 'curva-s') {
-        config.data.datasets = [
-            { label: 'FIS Acumulado (%)', data: graficosDados.fis_acum, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4 },
-            { label: 'MED Acumulado (%)', data: graficosDados.med_acum, borderColor: '#10b981', borderDash: [5, 5], tension: 0.4 }
-        ];
-    } else if (tipo === 'curva-s-dia') {
-        config.type = 'bar';
-        config.data.datasets = [
-            { label: 'FIS Mensal (%)', data: graficosDados.fis_mes, backgroundColor: '#8b5cf6' }
-        ];
-    } else if (tipo === 'comparativo-mensal') {
-        config.type = 'bar';
-        config.data.datasets = [
-            { label: 'FIN Mensal (R$)', data: graficosDados.fin_mes, backgroundColor: '#f43f5e' },
-            { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
-        ];
+    const commonLine = { tension: 0.4, spanGaps: false };
+
+    switch(tipo) {
+        case 'curva-s-fisica':
+            config.data.datasets = [
+                { label: 'FIS Acumulado (%)', data: graficosDados.fis_acum, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, ...commonLine },
+                { label: 'MED Acumulado (%)', data: graficosDados.med_acum, borderColor: '#10b981', borderDash: [5, 5], ...commonLine }
+            ];
+            break;
+        case 'histograma-fisico':
+            config.type = 'bar';
+            config.data.datasets = [
+                { label: 'FIS Mensal (%)', data: graficosDados.fis_mes, backgroundColor: '#3b82f6' },
+                { label: 'MED Mensal (%)', data: graficosDados.med_mes, backgroundColor: '#10b981' }
+            ];
+            break;
+        case 'curva-s-financeira':
+            config.data.datasets = [
+                { label: 'FIN Acumulado (R$)', data: graficosDados.fin_acum, borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.1)', fill: true, ...commonLine },
+                { label: 'DES Acumulado (R$)', data: graficosDados.des_acum, borderColor: '#f59e0b', borderDash: [5, 5], ...commonLine }
+            ];
+            break;
+        case 'histograma-financeiro':
+            config.type = 'bar';
+            config.data.datasets = [
+                { label: 'FIN Mensal (R$)', data: graficosDados.fin_mes, backgroundColor: '#f43f5e' },
+                { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
+            ];
+            break;
+        case 'saldo-mensal':
+            config.type = 'bar';
+            config.data.datasets = [{ label: 'Saldo Mensal (R$)', data: graficosDados.saldo_mes, backgroundColor: '#10b981' }];
+            break;
+        case 'saldo-acumulado':
+            config.data.datasets = [{ label: 'Saldo Acumulado (R$)', data: graficosDados.saldo_acum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, ...commonLine }];
+            break;
+        case 'desvio-progresso':
+            config.data.datasets = [{ label: 'Desvio Acumulado (%)', data: graficosDados.desvio_prog, borderColor: '#f43f5e', ...commonLine }];
+            break;
+        case 'custo-unitario':
+            config.type = 'bar';
+            config.data.datasets = [{ label: 'Custo Unitário (R$/m²)', data: graficosDados.custo_unit, backgroundColor: '#8b5cf6' }];
+            break;
+        case 'custo-unitario-acum':
+            config.data.datasets = [{ label: 'Custo Unit. Acum. (R$/m²)', data: graficosDados.custo_unit_acum, borderColor: '#8b5cf6', ...commonLine }];
+            break;
     }
 
-    chartPrincipal = new Chart(ctx, config);
+    const newChart = new Chart(ctx, config);
+    if (canvasId === 'chartPrincipal') chartPrincipal = newChart;
+    else chartSecundario = newChart;
 }
 
-function renderChartSecundario() {
-    const ctx = document.getElementById('chartSecundario').getContext('2d');
-    const tipo = document.getElementById('select-graf-secundario').value;
-    if (chartSecundario) chartSecundario.destroy();
+function getChartOptions(tipo) {
+    const isCurrency = tipo.includes('financeiro') || tipo.includes('saldo') || tipo.includes('custo');
+    const isPercent = tipo.includes('fisica') || tipo.includes('fisico') || tipo.includes('progresso');
 
-    let config = { type: 'bar', data: { labels: graficosDados.labels, datasets: [] }, options: getChartOptions() };
-
-    if (tipo === 'histograma') {
-        config.data.datasets = [
-            { label: 'MED Mensal (%)', data: graficosDados.med_mes, backgroundColor: '#10b981' }
-        ];
-    } else if (tipo === 'histograma-acumulado') {
-        config.type = 'line';
-        config.data.datasets = [
-            { label: 'MED Acum (%)', data: graficosDados.med_acum, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.4 }
-        ];
-    } else if (tipo === 'receita-saldo') {
-        config.data.datasets = [
-            { label: 'FIN Acum (R$)', data: graficosDados.fin_acum, backgroundColor: '#f43f5e' }
-        ];
-    } else if (tipo === 'distribuicao-recursos') {
-        config.data.datasets = [
-            { label: 'DES Mensal (R$)', data: graficosDados.des_mes, backgroundColor: '#f59e0b' }
-        ];
-    }
-
-    chartSecundario = new Chart(ctx, config);
-}
-
-function getChartOptions() {
     return {
         responsive: true,
         maintainAspectRatio: false,
         elements: { point: { radius: 3, hoverRadius: 6 } },
         scales: {
             x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
-            y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+            y: { 
+                ticks: { 
+                    color: '#94a3b8',
+                    callback: function(value) {
+                        if (isCurrency) return 'R$ ' + value.toLocaleString('pt-BR');
+                        if (isPercent) return value + '%';
+                        return value;
+                    }
+                }, 
+                grid: { color: 'rgba(255, 255, 255, 0.05)' } 
+            }
         },
-        plugins: { legend: { labels: { color: '#f8fafc', font: { family: 'Inter', size: 12 } } } }
+        plugins: { 
+            legend: { labels: { color: '#f8fafc', font: { family: 'Inter', size: 12 } } },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) label += ': ';
+                        if (isCurrency) label += 'R$ ' + context.parsed.y.toLocaleString('pt-BR');
+                        else if (isPercent) label += context.parsed.y + '%';
+                        else label += context.parsed.y;
+                        return label;
+                    }
+                }
+            }
+        }
     };
 }
 
 // Eventos de Dropdown
-document.getElementById('select-graf-principal').addEventListener('change', renderChartPrincipal);
-document.getElementById('select-graf-secundario').addEventListener('change', renderChartSecundario);
+document.getElementById('select-graf-principal').addEventListener('change', () => renderChartGeneric('chartPrincipal', 'select-graf-principal'));
+document.getElementById('select-graf-secundario').addEventListener('change', () => renderChartGeneric('chartSecundario', 'select-graf-secundario'));
 
 function switchView(viewId) {
     currentView = viewId;

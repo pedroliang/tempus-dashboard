@@ -133,7 +133,7 @@ body {
     align-items: flex-start;
 }
 .dash-graf-grid {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1fr;
 }
 .left-column, .right-column { display: flex; flex-direction: column; gap: 1.5rem; }
 
