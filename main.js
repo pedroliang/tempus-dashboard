@@ -645,24 +645,24 @@ function renderGanttChart(rows, containerId) {
 }
 
 // ========== MED TABLE ==========
-// Mapa de cores por nome de serviço da planilha MED
+// Mapa de cores NEON por nome de serviço - tema escuro moderno
 const MED_ROW_COLORS = {
-    'telhado': { bg: '#0000FF', text: '#FFFFFF', dataText: '#FF0000' },
-    'telhado técnico': { bg: '#0000FF', text: '#FFFFFF', dataText: '#FF0000' },
-    'pavto 4 cobertura comum': { bg: '#C070FF', text: '#000000', dataText: '#FF0000' },
-    'pavto 4 cobertura privativo': { bg: '#C070FF', text: '#000000', dataText: '#FF0000' },
-    'pavto 3 cobertura comum': { bg: '#BFBFBF', text: '#000000', dataText: '#FF0000' },
-    'pavto 3 cobertura privativo': { bg: '#BFBFBF', text: '#000000', dataText: '#FF0000' },
-    'pavto 2 comum': { bg: '#FFD966', text: '#000000', dataText: '#FF0000' },
-    'pavto 2 privativo': { bg: '#FFD966', text: '#000000', dataText: '#FF0000' },
-    'pavto 1/térreo comum': { bg: '#A9D08E', text: '#000000', dataText: '#FF0000' },
-    'pavto 1/térreo privativo': { bg: '#A9D08E', text: '#000000', dataText: '#FF0000' },
-    'puc': { bg: '#F4B084', text: '#000000', dataText: '#FF0000' },
-    'garagem': { bg: '#9BC2E6', text: '#000000', dataText: '#FF0000' },
-    'garagem vagas': { bg: '#9BC2E6', text: '#000000', dataText: '#FF0000' },
-    'térreo comum': { bg: '#B4C6E7', text: '#000000', dataText: '#FF0000' },
-    'térreo vagas': { bg: '#B4C6E7', text: '#000000', dataText: '#FF0000' },
-    'total': { bg: '#4472C4', text: '#FFFFFF', dataText: '#FFFFFF' },
+    'telhado': { bg: 'rgba(56, 189, 248, 0.18)', text: '#38bdf8', dataText: '#7dd3fc' },
+    'telhado técnico': { bg: 'rgba(56, 189, 248, 0.18)', text: '#38bdf8', dataText: '#7dd3fc' },
+    'pavto 4 cobertura comum': { bg: 'rgba(167, 139, 250, 0.18)', text: '#a78bfa', dataText: '#c4b5fd' },
+    'pavto 4 cobertura privativo': { bg: 'rgba(167, 139, 250, 0.18)', text: '#a78bfa', dataText: '#c4b5fd' },
+    'pavto 3 cobertura comum': { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8', dataText: '#cbd5e1' },
+    'pavto 3 cobertura privativo': { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8', dataText: '#cbd5e1' },
+    'pavto 2 comum': { bg: 'rgba(250, 204, 21, 0.15)', text: '#facc15', dataText: '#fde68a' },
+    'pavto 2 privativo': { bg: 'rgba(250, 204, 21, 0.15)', text: '#facc15', dataText: '#fde68a' },
+    'pavto 1/térreo comum': { bg: 'rgba(74, 222, 128, 0.15)', text: '#4ade80', dataText: '#86efac' },
+    'pavto 1/térreo privativo': { bg: 'rgba(74, 222, 128, 0.15)', text: '#4ade80', dataText: '#86efac' },
+    'puc': { bg: 'rgba(251, 146, 60, 0.18)', text: '#fb923c', dataText: '#fdba74' },
+    'garagem': { bg: 'rgba(96, 165, 250, 0.15)', text: '#60a5fa', dataText: '#93c5fd' },
+    'garagem vagas': { bg: 'rgba(96, 165, 250, 0.15)', text: '#60a5fa', dataText: '#93c5fd' },
+    'térreo comum': { bg: 'rgba(129, 140, 248, 0.15)', text: '#818cf8', dataText: '#a5b4fc' },
+    'térreo vagas': { bg: 'rgba(129, 140, 248, 0.15)', text: '#818cf8', dataText: '#a5b4fc' },
+    'total': { bg: 'rgba(99, 102, 241, 0.3)', text: '#c7d2fe', dataText: '#e0e7ff' },
 };
 
 function getMedRowColor(cellValue) {
