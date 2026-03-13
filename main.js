@@ -10,7 +10,9 @@ const GRAF_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx
 const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_MED}&tq=select%20*`;
 const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
 const GID_MED = '2090482851'; // Aba MED
-const MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&tq=select%20*`;
+// Usa ranges exatos para MED 1 (C8:ND33) e MED 2 (C38:ND64)
+const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND33`;
+const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C38:ND64`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -18,7 +20,8 @@ let cronMedData = [];
 let cronDinData = [];
 let ganttRendered = false;
 let ganttDinRendered = false;
-let medData = [];
+let med1Data = [];
+let med2Data = [];
 let medCurrentTab = 1;
 let currentView = 'info-obra';
 
@@ -31,24 +34,27 @@ let filteredGraficosDados = {}; // Armazena os dados filtrados para exibicao
 
 async function fetchData() {
     try {
-        const [resInfo, resGraf, resCronMed, resCronDin, resMed] = await Promise.all([
+        const [resInfo, resGraf, resCronMed, resCronDin, resMed1, resMed2] = await Promise.all([
             fetch(INFO_URL),
             fetch(GRAF_URL),
             fetch(CRON_MED_URL),
             fetch(CRON_DIN_URL),
-            fetch(MED_URL)
+            fetch(MED1_URL),
+            fetch(MED2_URL)
         ]);
         const textInfo = await resInfo.text();
         const textGraf = await resGraf.text();
         const textCronMed = await resCronMed.text();
         const textCronDin = await resCronDin.text();
-        const textMed = await resMed.text();
+        const textMed1 = await resMed1.text();
+        const textMed2 = await resMed2.text();
         
         sheetData = parseCSV(textInfo);
         dashGrafData = parseCSV(textGraf);
         cronMedData = parseCSV(textCronMed);
         cronDinData = parseCSV(textCronDin);
-        medData = parseCSV(textMed);
+        med1Data = parseCSV(textMed1);
+        med2Data = parseCSV(textMed2);
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
@@ -456,7 +462,8 @@ function switchView(viewId, title) {
         if (cronDinData.length > 0 && !ganttDinRendered) renderGanttChart(cronDinData, 'gantt-din-chart-container');
     } else if (viewId === 'med') {
         document.getElementById('view-med').style.display = 'block';
-        if (medData.length > 0) renderMedTable(medCurrentTab);
+        const data = (medCurrentTab === 1) ? med1Data : med2Data;
+        if (data.length > 0) renderMedTable(data);
     }
 }
 
@@ -671,47 +678,40 @@ function getMedRowColor(cellValue) {
 }
 
 // Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
-const COL_ND_INDEX = 367;
+// Como usamos range=C8:ND33, os dados já vem filtrados: col 0 = C, col 1 = D, ...
+// Então não precisamos mais de offset
 
-function renderMedTable(tabNum) {
-    if (!medData || medData.length === 0) return;
-    
-    // MED 1: linhas 8-33 (0-indexed: 7-32), MED 2: linhas 38-64 (0-indexed: 37-63)
-    const startRow = (tabNum === 1) ? 7 : 37;
-    const endRow = (tabNum === 1) ? 32 : 63;
+function renderMedTable(tableRows) {
+    if (!tableRows || tableRows.length === 0) return;
     
     const container = document.getElementById('med-table-container');
     
-    // Extraí as linhas do range
-    const tableRows = [];
-    for (let i = startRow; i <= Math.min(endRow, medData.length - 1); i++) {
-        const row = medData[i];
-        if (row) tableRows.push(row);
-    }
-    
-    if (tableRows.length === 0) {
-        container.innerHTML = '<div class="gantt-loading">Nenhum dado encontrado.</div>';
-        return;
-    }
-    
-    // Limite da coluna: C (index 2) até ND (index 367), mas não além dos dados disponíveis
-    const maxCol = Math.min(COL_ND_INDEX, Math.max(...tableRows.map(r => r.length - 1)));
+    // Encontra a última coluna com dados
+    let maxCol = 0;
+    tableRows.forEach(row => {
+        for (let c = row.length - 1; c >= 0; c--) {
+            if (row[c] && row[c].trim() !== '') {
+                if (c > maxCol) maxCol = c;
+                break;
+            }
+        }
+    });
     
     // Constrói a tabela HTML
     let html = '<table class="med-table">';
     
     tableRows.forEach((row, rowIdx) => {
-        // A primeira coluna (C, index 2) identifica o serviço/seção
-        const firstCellVal = (row[2] !== undefined && row[2] !== null) ? row[2].trim() : '';
+        // A primeira coluna (index 0 = col C na planilha) identifica o serviço
+        const firstCellVal = (row[0] !== undefined && row[0] !== null) ? row[0].trim() : '';
         const rowColor = getMedRowColor(firstCellVal);
         
         html += '<tr>';
-        for (let c = 2; c <= maxCol; c++) {
+        for (let c = 0; c <= maxCol; c++) {
             const val = (row[c] !== undefined && row[c] !== null) ? row[c].trim() : '';
             let style = '';
             
             if (rowColor) {
-                const isFirstCol = (c === 2);
+                const isFirstCol = (c === 0);
                 const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
                 style = `style="background-color:${rowColor.bg};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
             }
@@ -730,13 +730,13 @@ document.getElementById('btn-med-1').addEventListener('click', () => {
     medCurrentTab = 1;
     document.getElementById('btn-med-1').classList.add('active');
     document.getElementById('btn-med-2').classList.remove('active');
-    if (medData.length > 0) renderMedTable(1);
+    if (med1Data.length > 0) renderMedTable(med1Data);
 });
 document.getElementById('btn-med-2').addEventListener('click', () => {
     medCurrentTab = 2;
     document.getElementById('btn-med-2').classList.add('active');
     document.getElementById('btn-med-1').classList.remove('active');
-    if (medData.length > 0) renderMedTable(2);
+    if (med2Data.length > 0) renderMedTable(med2Data);
 });
 
 fetchData();
