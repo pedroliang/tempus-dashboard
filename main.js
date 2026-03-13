@@ -11,8 +11,8 @@ const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq
 const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
 const GID_MED = '2090482851'; // Aba MED
 // Usa ranges exatos para MED 1 (C8:ND33) e MED 2 (C38:ND64)
-const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND33`;
-const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C38:ND64`;
+const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND34`;
+const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C36:ND65`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -679,50 +679,73 @@ function getMedRowColor(cellValue) {
 }
 
 // Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
-// Como usamos range=C8:ND33, os dados já vem filtrados: col 0 = C, col 1 = D, ...
-// Então não precisamos mais de offset
+const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND34`;
+const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C36:ND65`;
 
 function renderMedTable(tableRows) {
     if (!tableRows || tableRows.length === 0) return;
-    
     const container = document.getElementById('med-table-container');
     
-    // Encontra a última coluna com dados
+    // Identifica linhas especiais de cabeçalho
+    const headerRows = {
+        codigo: tableRows.find(r => r[0] && r[0].includes('Código')) || tableRows.find(r => r.some(v => v === 'Código')),
+        relacao: tableRows.find(r => r[0] && r[0].includes('Relação'))
+    };
+
     let maxCol = 0;
-    tableRows.forEach(row => {
-        for (let c = row.length - 1; c >= 0; c--) {
-            if (row[c] && row[c].trim() !== '') {
-                if (c > maxCol) maxCol = c;
-                break;
-            }
-        }
-    });
-    
-    // Constrói a tabela HTML
+    tableRows.forEach(row => { if (row.length > maxCol) maxCol = row.length - 1; });
+
     let html = '<table class="med-table">';
-    
     tableRows.forEach((row, rowIdx) => {
-        // A primeira coluna (index 0 = col C na planilha) identifica o serviço
-        const firstCellVal = (row[0] !== undefined && row[0] !== null) ? row[0].trim() : '';
+        const firstCellVal = (row[0] || '').trim();
         const rowColor = getMedRowColor(firstCellVal);
-        
+        const isHeaderLine = (firstCellVal === 'Código' || firstCellVal === 'Metas Ini' || firstCellVal === 'Fim Planejado' || firstCellVal === 'Serviço' || firstCellVal === 'Relação' || firstCellVal.includes('Veloc.'));
+
         html += '<tr>';
         for (let c = 0; c <= maxCol; c++) {
-            const val = (row[c] !== undefined && row[c] !== null) ? row[c].trim() : '';
-            let style = '';
+            let val = (row[c] || '').trim();
+            let nextVal = (c + 1 <= maxCol) ? (row[c+1] || '').trim() : '';
             
-            if (rowColor) {
+            // LÓGICA DE UNIFICAÇÃO (LOOKAHEAD)
+            // Se encontrar "Código" na coluna >= 2, tenta mesclar com o número (val2 ou da linha Relação)
+            if (c >= 2 && val === 'Código') {
+                let foundNum = '';
+                if (nextVal !== '' && !isNaN(nextVal)) {
+                    foundNum = nextVal;
+                } else if (headerRows.relacao) {
+                    const rValue = (headerRows.relacao[c+1] || headerRows.relacao[c] || '').trim();
+                    if (rValue !== '' && !isNaN(rValue)) foundNum = rValue;
+                }
+
+                const style = rowColor ? `style="background-color:${rowColor.bg};color:${rowColor.dataText};font-weight:500"` : `style="background-color:rgba(255,255,255,0.03);color:#f8fafc;font-weight:700"`;
+                const content = foundNum ? `Código ${foundNum}` : 'Código';
+                html += `<td colspan="2" ${style}>${content}</td>`;
+                c++; // Pula a próxima coluna já que foi mesclada
+            } else {
+                // Renderização normal de célula individual (exceto para serviços que também podem ser longos)
+                // Se a próxima célula for vazia e esta não for, e estamos em colunas de dados, pode ser um merge de serviço
+                let style = '';
                 const isFirstCol = (c === 0);
-                const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
-                const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
-                style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
+                if (rowColor) {
+                    const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
+                    const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
+                    style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
+                } else {
+                    const bgColor = isFirstCol ? '#1e293b' : 'rgba(255, 255, 255, 0.03)';
+                    style = `style="background-color:${bgColor};color:#f8fafc;font-weight:${isFirstCol ? '700' : '500'}"`;
+                }
+                
+                // Se for as colunas de dados (c>=2) e a próxima for vazia, mesclamos para manter o ritmo de 2 em 2 colunas
+                if (c >= 2 && nextVal === '' && c % 2 === 0) {
+                     html += `<td colspan="2" ${style}>${val}</td>`;
+                     c++;
+                } else {
+                     html += `<td ${style}>${val}</td>`;
+                }
             }
-            
-            html += `<td ${style}>${val}</td>`;
         }
         html += '</tr>';
     });
-    
     html += '</table>';
     container.innerHTML = html;
 }
