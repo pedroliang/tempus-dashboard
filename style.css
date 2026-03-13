@@ -503,21 +503,14 @@ body {
 .med-table td {
     color: #cbd5e1;
 }
-.med-table tr:nth-child(even) td {
-    background: rgba(255,255,255,0.02);
-}
 .med-table tr:hover td {
-    background: rgba(255,255,255,0.06);
+    filter: brightness(1.15);
 }
-.med-table td:first-child,
-.med-table th:first-child {
+.med-table td:first-child {
     position: sticky;
     left: 0;
     z-index: 4;
-    background: rgba(30, 41, 59, 0.95);
     text-align: left;
-    font-weight: 600;
-    color: #e2e8f0;
     min-width: 160px;
     max-width: 200px;
     white-space: normal;

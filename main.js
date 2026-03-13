@@ -638,11 +638,45 @@ function renderGanttChart(rows, containerId) {
 }
 
 // ========== MED TABLE ==========
+// Mapa de cores por nome de serviço da planilha MED
+const MED_ROW_COLORS = {
+    'telhado': { bg: '#0000FF', text: '#FFFFFF', dataText: '#FF0000' },
+    'telhado técnico': { bg: '#0000FF', text: '#FFFFFF', dataText: '#FF0000' },
+    'pavto 4 cobertura comum': { bg: '#C070FF', text: '#000000', dataText: '#FF0000' },
+    'pavto 4 cobertura privativo': { bg: '#C070FF', text: '#000000', dataText: '#FF0000' },
+    'pavto 3 cobertura comum': { bg: '#BFBFBF', text: '#000000', dataText: '#FF0000' },
+    'pavto 3 cobertura privativo': { bg: '#BFBFBF', text: '#000000', dataText: '#FF0000' },
+    'pavto 2 comum': { bg: '#FFD966', text: '#000000', dataText: '#FF0000' },
+    'pavto 2 privativo': { bg: '#FFD966', text: '#000000', dataText: '#FF0000' },
+    'pavto 1/térreo comum': { bg: '#A9D08E', text: '#000000', dataText: '#FF0000' },
+    'pavto 1/térreo privativo': { bg: '#A9D08E', text: '#000000', dataText: '#FF0000' },
+    'puc': { bg: '#F4B084', text: '#000000', dataText: '#FF0000' },
+    'garagem': { bg: '#9BC2E6', text: '#000000', dataText: '#FF0000' },
+    'garagem vagas': { bg: '#9BC2E6', text: '#000000', dataText: '#FF0000' },
+    'térreo comum': { bg: '#B4C6E7', text: '#000000', dataText: '#FF0000' },
+    'térreo vagas': { bg: '#B4C6E7', text: '#000000', dataText: '#FF0000' },
+    'total': { bg: '#4472C4', text: '#FFFFFF', dataText: '#FFFFFF' },
+};
+
+function getMedRowColor(cellValue) {
+    if (!cellValue) return null;
+    const key = cellValue.trim().toLowerCase();
+    // Busca correspondência exata primeiro
+    if (MED_ROW_COLORS[key]) return MED_ROW_COLORS[key];
+    // Busca parcial
+    for (const [k, v] of Object.entries(MED_ROW_COLORS)) {
+        if (key.includes(k) || k.includes(key)) return v;
+    }
+    return null;
+}
+
+// Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
+const COL_ND_INDEX = 367;
+
 function renderMedTable(tabNum) {
     if (!medData || medData.length === 0) return;
     
     // MED 1: linhas 8-33 (0-indexed: 7-32), MED 2: linhas 38-64 (0-indexed: 37-63)
-    // Na planilha, col C = index 2
     const startRow = (tabNum === 1) ? 7 : 37;
     const endRow = (tabNum === 1) ? 32 : 63;
     
@@ -660,27 +694,29 @@ function renderMedTable(tabNum) {
         return;
     }
     
-    // Encontra a última coluna com dados
-    let maxCol = 2; // começa na coluna C (index 2)
-    tableRows.forEach(row => {
-        for (let c = row.length - 1; c >= 2; c--) {
-            if (row[c] && row[c].trim() !== '') {
-                if (c > maxCol) maxCol = c;
-                break;
-            }
-        }
-    });
+    // Limite da coluna: C (index 2) até ND (index 367), mas não além dos dados disponíveis
+    const maxCol = Math.min(COL_ND_INDEX, Math.max(...tableRows.map(r => r.length - 1)));
     
     // Constrói a tabela HTML
     let html = '<table class="med-table">';
     
     tableRows.forEach((row, rowIdx) => {
-        const isHeader = rowIdx === 0; // Primeira linha como cabeçalho
-        const tag = isHeader ? 'th' : 'td';
+        // A primeira coluna (C, index 2) identifica o serviço/seção
+        const firstCellVal = (row[2] !== undefined && row[2] !== null) ? row[2].trim() : '';
+        const rowColor = getMedRowColor(firstCellVal);
+        
         html += '<tr>';
         for (let c = 2; c <= maxCol; c++) {
             const val = (row[c] !== undefined && row[c] !== null) ? row[c].trim() : '';
-            html += `<${tag}>${val}</${tag}>`;
+            let style = '';
+            
+            if (rowColor) {
+                const isFirstCol = (c === 2);
+                const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
+                style = `style="background-color:${rowColor.bg};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
+            }
+            
+            html += `<td ${style}>${val}</td>`;
         }
         html += '</tr>';
     });
