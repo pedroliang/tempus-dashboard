@@ -9,6 +9,8 @@ const INFO_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx
 const GRAF_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_GRAF}&tq=select%20*`;
 const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_MED}&tq=select%20*`;
 const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
+const GID_MED = '2090482851'; // Aba MED
+const MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&tq=select%20*`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -16,6 +18,8 @@ let cronMedData = [];
 let cronDinData = [];
 let ganttRendered = false;
 let ganttDinRendered = false;
+let medData = [];
+let medCurrentTab = 1;
 let currentView = 'info-obra';
 
 // Referências Globais do Chart.js
@@ -27,21 +31,24 @@ let filteredGraficosDados = {}; // Armazena os dados filtrados para exibicao
 
 async function fetchData() {
     try {
-        const [resInfo, resGraf, resCronMed, resCronDin] = await Promise.all([
+        const [resInfo, resGraf, resCronMed, resCronDin, resMed] = await Promise.all([
             fetch(INFO_URL),
             fetch(GRAF_URL),
             fetch(CRON_MED_URL),
-            fetch(CRON_DIN_URL)
+            fetch(CRON_DIN_URL),
+            fetch(MED_URL)
         ]);
         const textInfo = await resInfo.text();
         const textGraf = await resGraf.text();
         const textCronMed = await resCronMed.text();
         const textCronDin = await resCronDin.text();
+        const textMed = await resMed.text();
         
         sheetData = parseCSV(textInfo);
         dashGrafData = parseCSV(textGraf);
         cronMedData = parseCSV(textCronMed);
         cronDinData = parseCSV(textCronDin);
+        medData = parseCSV(textMed);
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
@@ -447,6 +454,9 @@ function switchView(viewId, title) {
     } else if (viewId === 'gantt-cron-din') {
         document.getElementById('view-gantt-cron-din').style.display = 'block';
         if (cronDinData.length > 0 && !ganttDinRendered) renderGanttChart(cronDinData, 'gantt-din-chart-container');
+    } else if (viewId === 'med') {
+        document.getElementById('view-med').style.display = 'block';
+        if (medData.length > 0) renderMedTable(medCurrentTab);
     }
 }
 
@@ -467,6 +477,8 @@ document.querySelectorAll('.nav-link').forEach(link => {
             switchView('gantt-cron-med', title);
         } else if (title === 'GANTT CRON DIN') {
             switchView('gantt-cron-din', title);
+        } else if (title === 'MED') {
+            switchView('med', title);
         } else {
             // Para os outros menus, atualiza o título e esconde as views existentes
             document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
@@ -624,6 +636,72 @@ function renderGanttChart(rows, containerId) {
         });
     });
 }
+
+// ========== MED TABLE ==========
+function renderMedTable(tabNum) {
+    if (!medData || medData.length === 0) return;
+    
+    // MED 1: linhas 8-33 (0-indexed: 7-32), MED 2: linhas 38-64 (0-indexed: 37-63)
+    // Na planilha, col C = index 2
+    const startRow = (tabNum === 1) ? 7 : 37;
+    const endRow = (tabNum === 1) ? 32 : 63;
+    
+    const container = document.getElementById('med-table-container');
+    
+    // Extraí as linhas do range
+    const tableRows = [];
+    for (let i = startRow; i <= Math.min(endRow, medData.length - 1); i++) {
+        const row = medData[i];
+        if (row) tableRows.push(row);
+    }
+    
+    if (tableRows.length === 0) {
+        container.innerHTML = '<div class="gantt-loading">Nenhum dado encontrado.</div>';
+        return;
+    }
+    
+    // Encontra a última coluna com dados
+    let maxCol = 2; // começa na coluna C (index 2)
+    tableRows.forEach(row => {
+        for (let c = row.length - 1; c >= 2; c--) {
+            if (row[c] && row[c].trim() !== '') {
+                if (c > maxCol) maxCol = c;
+                break;
+            }
+        }
+    });
+    
+    // Constrói a tabela HTML
+    let html = '<table class="med-table">';
+    
+    tableRows.forEach((row, rowIdx) => {
+        const isHeader = rowIdx === 0; // Primeira linha como cabeçalho
+        const tag = isHeader ? 'th' : 'td';
+        html += '<tr>';
+        for (let c = 2; c <= maxCol; c++) {
+            const val = (row[c] !== undefined && row[c] !== null) ? row[c].trim() : '';
+            html += `<${tag}>${val}</${tag}>`;
+        }
+        html += '</tr>';
+    });
+    
+    html += '</table>';
+    container.innerHTML = html;
+}
+
+// Event listeners dos botões MED 1 e MED 2
+document.getElementById('btn-med-1').addEventListener('click', () => {
+    medCurrentTab = 1;
+    document.getElementById('btn-med-1').classList.add('active');
+    document.getElementById('btn-med-2').classList.remove('active');
+    if (medData.length > 0) renderMedTable(1);
+});
+document.getElementById('btn-med-2').addEventListener('click', () => {
+    medCurrentTab = 2;
+    document.getElementById('btn-med-2').classList.add('active');
+    document.getElementById('btn-med-1').classList.remove('active');
+    if (medData.length > 0) renderMedTable(2);
+});
 
 fetchData();
 setInterval(fetchData, 60000);
