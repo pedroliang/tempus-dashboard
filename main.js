@@ -1,13 +1,21 @@
 const SHEET_ID = '1ERU7rfuO6WmtTdD2q3lmDEnX9WZxDAEnYF5xYqjLNvw';
 const GID_INFO = '1077098301';
 const GID_GRAF = '130998217'; // DASH DADOS
+const GID_CRON_MED = '1684801435'; // Cron MED (dados do Gantt)
+const GID_CRON_DIN = '1594302258'; // Cron DIN (dados do Gantt Dinâmico)
 
 // Gviz supports CORS naturally and does not require third party proxy services
 const INFO_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_INFO}`;
 const GRAF_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_GRAF}&tq=select%20*`;
+const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_MED}&tq=select%20*`;
+const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
 
 let sheetData = [];
 let dashGrafData = [];
+let cronMedData = [];
+let cronDinData = [];
+let ganttRendered = false;
+let ganttDinRendered = false;
 let currentView = 'info-obra';
 
 // Referências Globais do Chart.js
@@ -19,18 +27,27 @@ let filteredGraficosDados = {}; // Armazena os dados filtrados para exibicao
 
 async function fetchData() {
     try {
-        const [resInfo, resGraf] = await Promise.all([
+        const [resInfo, resGraf, resCronMed, resCronDin] = await Promise.all([
             fetch(INFO_URL),
-            fetch(GRAF_URL)
+            fetch(GRAF_URL),
+            fetch(CRON_MED_URL),
+            fetch(CRON_DIN_URL)
         ]);
         const textInfo = await resInfo.text();
         const textGraf = await resGraf.text();
+        const textCronMed = await resCronMed.text();
+        const textCronDin = await resCronDin.text();
         
         sheetData = parseCSV(textInfo);
         dashGrafData = parseCSV(textGraf);
+        cronMedData = parseCSV(textCronMed);
+        cronDinData = parseCSV(textCronDin);
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
+        // Renderiza os Gantts se os dados foram carregados
+        if (cronMedData.length > 0) renderGanttChart(cronMedData, 'gantt-chart-container');
+        if (cronDinData.length > 0) renderGanttChart(cronDinData, 'gantt-din-chart-container');
     } catch (error) {
         console.error('Erro ao buscar dados:', error);
     }
@@ -408,22 +425,205 @@ document.getElementById('btn-reset-filter').addEventListener('click', () => {
     aplciarFiltroDatas();
 });
 
-function switchView(viewId) {
+function switchView(viewId, title) {
     currentView = viewId;
+    // Atualiza o título central com o nome do menu clicado
+    const headerEl = document.querySelector('.dashboard-header h1');
+    if (headerEl && title) {
+        headerEl.textContent = title;
+    }
     document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
     if (viewId === 'info-obra') {
         document.getElementById('view-info-obra').style.display = 'block';
         document.getElementById('link-info-obra').classList.add('active');
-    } else {
+    } else if (viewId === 'dash-graf') {
         document.getElementById('view-dash-graf').style.display = 'block';
         document.getElementById('link-dash-graf').classList.add('active');
         if (fullGraficosDados.labels && fullGraficosDados.labels.length > 0) renderDashGraf(); 
+    } else if (viewId === 'gantt-cron-med') {
+        document.getElementById('view-gantt-cron-med').style.display = 'block';
+        if (cronMedData.length > 0 && !ganttRendered) renderGanttChart(cronMedData, 'gantt-chart-container');
+    } else if (viewId === 'gantt-cron-din') {
+        document.getElementById('view-gantt-cron-din').style.display = 'block';
+        if (cronDinData.length > 0 && !ganttDinRendered) renderGanttChart(cronDinData, 'gantt-din-chart-container');
     }
 }
 
-document.getElementById('link-info-obra').addEventListener('click', () => switchView('info-obra'));
-document.getElementById('link-dash-graf').addEventListener('click', () => switchView('dash-graf'));
+// Adiciona event listeners a TODOS os links do menu
+document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const title = link.textContent.trim();
+        // Marca todos como inativos e ativa o clicado
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        
+        if (link.id === 'link-info-obra') {
+            switchView('info-obra', title);
+        } else if (link.id === 'link-dash-graf') {
+            switchView('dash-graf', title);
+        } else if (title === 'GANTT CRON MED') {
+            switchView('gantt-cron-med', title);
+        } else if (title === 'GANTT CRON DIN') {
+            switchView('gantt-cron-din', title);
+        } else {
+            // Para os outros menus, atualiza o título e esconde as views existentes
+            document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
+            const headerEl = document.querySelector('.dashboard-header h1');
+            if (headerEl) headerEl.textContent = title;
+        }
+    });
+});
+
+// ========== GANTT CHART ==========
+function parseDate(dateStr) {
+    // Formato DD/MM/YY ou DD/MM/YYYY
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split('/');
+    if (parts.length !== 3) return null;
+    let day = parseInt(parts[0]);
+    let month = parseInt(parts[1]) - 1;
+    let year = parseInt(parts[2]);
+    if (year < 100) year += 2000;
+    return new Date(year, month, day);
+}
+
+function renderGanttChart(rows, containerId) {
+    containerId = containerId || 'gantt-chart-container';
+    // Parseia atividades do CSV: col 4 = Serviço, col 6 = Data Início, col 7 = Data Fim
+    const atividades = [];
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const nome = row[4] ? row[4].trim() : '';
+        const dataInicioStr = row[6] ? row[6].trim() : '';
+        const dataFimStr = row[7] ? row[7].trim() : '';
+        const duracao = row[8] ? row[8].trim() : '';
+        
+        if (!nome || !dataInicioStr || !dataFimStr) continue;
+        
+        const dataInicio = parseDate(dataInicioStr);
+        const dataFim = parseDate(dataFimStr);
+        
+        if (!dataInicio || !dataFim) continue;
+        
+        atividades.push({
+            nome: nome,
+            inicio: dataInicio,
+            fim: dataFim,
+            inicioStr: dataInicioStr,
+            fimStr: dataFimStr,
+            duracao: duracao
+        });
+    }
+    
+    if (atividades.length === 0) {
+        document.getElementById(containerId).innerHTML = '<div class="gantt-loading">Nenhuma atividade encontrada.</div>';
+        return;
+    }
+    
+    // Ordena por data de início
+    atividades.sort((a, b) => a.inicio - b.inicio);
+    
+    // Encontra range total de datas
+    let minDate = new Date(atividades[0].inicio);
+    let maxDate = new Date(atividades[0].fim);
+    atividades.forEach(a => {
+        if (a.inicio < minDate) minDate = new Date(a.inicio);
+        if (a.fim > maxDate) maxDate = new Date(a.fim);
+    });
+    
+    // Expande para meses completos
+    minDate = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
+    
+    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Gera lista de meses
+    const meses = [];
+    let cur = new Date(minDate);
+    while (cur <= maxDate) {
+        const mesInicio = new Date(cur);
+        const mesFim = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+        const diasNoMes = mesFim.getDate();
+        const mesesNomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+        meses.push({
+            label: `${mesesNomes[cur.getMonth()]}/${String(cur.getFullYear()).slice(2)}`,
+            dias: diasNoMes,
+            widthPercent: (diasNoMes / totalDays) * 100
+        });
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+    
+    // Constrói HTML do Gantt
+    const container = document.getElementById(containerId);
+    
+    // ID único do tooltip para cada container
+    const tooltipId = 'tooltip-' + containerId;
+    let html = '<div class="gantt-wrapper">';
+    
+    // Cabeçalho
+    html += '<div class="gantt-label-header">Serviços</div>';
+    html += '<div class="gantt-timeline-header">';
+    meses.forEach(m => {
+        html += `<div class="gantt-month-label" style="width:${m.widthPercent}%">${m.label}</div>`;
+    });
+    html += '</div>';
+    
+    // Linhas de atividades
+    atividades.forEach((a, idx) => {
+        const startOffset = (a.inicio - minDate) / (1000 * 60 * 60 * 24);
+        const duration = Math.max(1, (a.fim - a.inicio) / (1000 * 60 * 60 * 24) + 1);
+        const leftPercent = (startOffset / totalDays) * 100;
+        const widthPercent = (duration / totalDays) * 100;
+        
+        html += '<div class="gantt-row">';
+        html += `<div class="gantt-label" title="${a.nome}">${a.nome}</div>`;
+        html += `<div class="gantt-bar-container">`;
+        html += `<div class="gantt-bar" style="left:${leftPercent}%;width:${widthPercent}%" 
+            data-nome="${a.nome.replace(/"/g, '&quot;')}" 
+            data-inicio="${a.inicioStr}" 
+            data-fim="${a.fimStr}" 
+            data-duracao="${a.duracao} dias"></div>`;
+        html += '</div>';
+        html += '</div>';
+    });
+    
+    html += '</div>';
+    
+    // Tooltip global
+    html += `<div class="gantt-tooltip" id="${tooltipId}"></div>`;
+    
+    container.innerHTML = html;
+    // Marca como renderizado
+    if (containerId === 'gantt-chart-container') ganttRendered = true;
+    if (containerId === 'gantt-din-chart-container') ganttDinRendered = true;
+    
+    // Configura tooltips apenas para as barras deste container
+    const tooltip = document.getElementById(tooltipId);
+    container.querySelectorAll('.gantt-bar').forEach(bar => {
+        bar.addEventListener('mouseenter', (e) => {
+            const nome = bar.dataset.nome;
+            const inicio = bar.dataset.inicio;
+            const fim = bar.dataset.fim;
+            const duracao = bar.dataset.duracao;
+            tooltip.innerHTML = `
+                <div class="tt-title">${nome}</div>
+                <div class="tt-detail">Início: ${inicio}</div>
+                <div class="tt-detail">Fim: ${fim}</div>
+                <div class="tt-detail">Duração: ${duracao}</div>
+            `;
+            tooltip.style.display = 'block';
+        });
+        bar.addEventListener('mousemove', (e) => {
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY - 10) + 'px';
+        });
+        bar.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+    });
+}
 
 fetchData();
 setInterval(fetchData, 60000);

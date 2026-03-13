@@ -271,3 +271,167 @@ body {
 .filter-btn:hover {
     opacity: 0.9;
 }
+
+/* ========== Gantt Chart Styles ========== */
+.gantt-panel {
+    max-width: 100%;
+    overflow: hidden;
+}
+.gantt-panel:hover {
+    transform: none;
+}
+.gantt-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.gantt-chart-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 75vh;
+    padding-bottom: 1rem;
+}
+.gantt-chart-container::-webkit-scrollbar { width: 8px; height: 8px; }
+.gantt-chart-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 4px; }
+.gantt-chart-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+.gantt-chart-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+.gantt-wrapper {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-width: 900px;
+}
+
+/* Cabeçalho da timeline */
+.gantt-timeline-header {
+    grid-column: 2;
+    display: flex;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    position: sticky;
+    top: 0;
+    background: rgba(30, 41, 59, 0.95);
+    z-index: 10;
+}
+.gantt-month-label {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    padding: 0.5rem 0;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    box-sizing: border-box;
+}
+.gantt-label-header {
+    grid-column: 1;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    position: sticky;
+    top: 0;
+    background: rgba(30, 41, 59, 0.95);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+}
+
+/* Linhas do Gantt */
+.gantt-row {
+    display: contents;
+}
+.gantt-row:hover .gantt-label,
+.gantt-row:hover .gantt-bar-container {
+    background: rgba(255,255,255,0.04);
+}
+.gantt-label {
+    grid-column: 1;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    position: sticky;
+    left: 0;
+    background: rgba(30, 41, 59, 0.9);
+    z-index: 5;
+}
+.gantt-bar-container {
+    grid-column: 2;
+    position: relative;
+    height: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.gantt-bar {
+    position: absolute;
+    height: 16px;
+    top: 4px;
+    background: linear-gradient(90deg, #ef4444cc, #dc2626cc);
+    border-radius: 3px;
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    min-width: 3px;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+.gantt-bar:hover {
+    opacity: 0.85;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+/* Tooltip */
+.gantt-tooltip {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    color: #f8fafc;
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 350px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    display: none;
+}
+.gantt-tooltip .tt-title { font-weight: 700; margin-bottom: 0.4rem; color: #ef4444; }
+.gantt-tooltip .tt-detail { color: #94a3b8; font-size: 0.75rem; }
+
+/* Loading */
+.gantt-loading {
+    text-align: center;
+    padding: 3rem;
+    color: #94a3b8;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+/* Linhas de grid vertical */
+.gantt-grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.04);
+    pointer-events: none;
+}
+
+/* Linha de hoje */
+.gantt-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #3b82f6;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+    pointer-events: none;
+    z-index: 3;
+}
