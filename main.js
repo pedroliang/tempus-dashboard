@@ -646,23 +646,24 @@ function renderGanttChart(rows, containerId) {
 
 // ========== MED TABLE ==========
 // Mapa de cores NEON por nome de serviço - tema escuro moderno
+// bgSolid = cor opaca (blend de bg rgba com fundo #0f172a) para coluna sticky
 const MED_ROW_COLORS = {
-    'telhado': { bg: 'rgba(56, 189, 248, 0.18)', text: '#38bdf8', dataText: '#7dd3fc' },
-    'telhado técnico': { bg: 'rgba(56, 189, 248, 0.18)', text: '#38bdf8', dataText: '#7dd3fc' },
-    'pavto 4 cobertura comum': { bg: 'rgba(167, 139, 250, 0.18)', text: '#a78bfa', dataText: '#c4b5fd' },
-    'pavto 4 cobertura privativo': { bg: 'rgba(167, 139, 250, 0.18)', text: '#a78bfa', dataText: '#c4b5fd' },
-    'pavto 3 cobertura comum': { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8', dataText: '#cbd5e1' },
-    'pavto 3 cobertura privativo': { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8', dataText: '#cbd5e1' },
-    'pavto 2 comum': { bg: 'rgba(250, 204, 21, 0.15)', text: '#facc15', dataText: '#fde68a' },
-    'pavto 2 privativo': { bg: 'rgba(250, 204, 21, 0.15)', text: '#facc15', dataText: '#fde68a' },
-    'pavto 1/térreo comum': { bg: 'rgba(74, 222, 128, 0.15)', text: '#4ade80', dataText: '#86efac' },
-    'pavto 1/térreo privativo': { bg: 'rgba(74, 222, 128, 0.15)', text: '#4ade80', dataText: '#86efac' },
-    'puc': { bg: 'rgba(251, 146, 60, 0.18)', text: '#fb923c', dataText: '#fdba74' },
-    'garagem': { bg: 'rgba(96, 165, 250, 0.15)', text: '#60a5fa', dataText: '#93c5fd' },
-    'garagem vagas': { bg: 'rgba(96, 165, 250, 0.15)', text: '#60a5fa', dataText: '#93c5fd' },
-    'térreo comum': { bg: 'rgba(129, 140, 248, 0.15)', text: '#818cf8', dataText: '#a5b4fc' },
-    'térreo vagas': { bg: 'rgba(129, 140, 248, 0.15)', text: '#818cf8', dataText: '#a5b4fc' },
-    'total': { bg: 'rgba(99, 102, 241, 0.3)', text: '#c7d2fe', dataText: '#e0e7ff' },
+    'telhado': { bg: 'rgba(56, 189, 248, 0.18)', bgSolid: '#16354f', text: '#38bdf8', dataText: '#7dd3fc' },
+    'telhado técnico': { bg: 'rgba(56, 189, 248, 0.18)', bgSolid: '#16354f', text: '#38bdf8', dataText: '#7dd3fc' },
+    'pavto 4 cobertura comum': { bg: 'rgba(167, 139, 250, 0.18)', bgSolid: '#231e54', text: '#a78bfa', dataText: '#c4b5fd' },
+    'pavto 4 cobertura privativo': { bg: 'rgba(167, 139, 250, 0.18)', bgSolid: '#231e54', text: '#a78bfa', dataText: '#c4b5fd' },
+    'pavto 3 cobertura comum': { bg: 'rgba(148, 163, 184, 0.15)', bgSolid: '#1e2840', text: '#94a3b8', dataText: '#cbd5e1' },
+    'pavto 3 cobertura privativo': { bg: 'rgba(148, 163, 184, 0.15)', bgSolid: '#1e2840', text: '#94a3b8', dataText: '#cbd5e1' },
+    'pavto 2 comum': { bg: 'rgba(250, 204, 21, 0.15)', bgSolid: '#2c2e2d', text: '#facc15', dataText: '#fde68a' },
+    'pavto 2 privativo': { bg: 'rgba(250, 204, 21, 0.15)', bgSolid: '#2c2e2d', text: '#facc15', dataText: '#fde68a' },
+    'pavto 1/térreo comum': { bg: 'rgba(74, 222, 128, 0.15)', bgSolid: '#152e35', text: '#4ade80', dataText: '#86efac' },
+    'pavto 1/térreo privativo': { bg: 'rgba(74, 222, 128, 0.15)', bgSolid: '#152e35', text: '#4ade80', dataText: '#86efac' },
+    'puc': { bg: 'rgba(251, 146, 60, 0.18)', bgSolid: '#321f2d', text: '#fb923c', dataText: '#fdba74' },
+    'garagem': { bg: 'rgba(96, 165, 250, 0.15)', bgSolid: '#162a4e', text: '#60a5fa', dataText: '#93c5fd' },
+    'garagem vagas': { bg: 'rgba(96, 165, 250, 0.15)', bgSolid: '#162a4e', text: '#60a5fa', dataText: '#93c5fd' },
+    'térreo comum': { bg: 'rgba(129, 140, 248, 0.15)', bgSolid: '#1c2050', text: '#818cf8', dataText: '#a5b4fc' },
+    'térreo vagas': { bg: 'rgba(129, 140, 248, 0.15)', bgSolid: '#1c2050', text: '#818cf8', dataText: '#a5b4fc' },
+    'total': { bg: 'rgba(99, 102, 241, 0.3)', bgSolid: '#222460', text: '#c7d2fe', dataText: '#e0e7ff' },
 };
 
 function getMedRowColor(cellValue) {
@@ -712,8 +713,9 @@ function renderMedTable(tableRows) {
             
             if (rowColor) {
                 const isFirstCol = (c === 0);
+                const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
                 const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
-                style = `style="background-color:${rowColor.bg};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
+                style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
             }
             
             html += `<td ${style}>${val}</td>`;
