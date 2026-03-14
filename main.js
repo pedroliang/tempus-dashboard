@@ -1,18 +1,22 @@
 const SHEET_ID = '1ERU7rfuO6WmtTdD2q3lmDEnX9WZxDAEnYF5xYqjLNvw';
 const GID_INFO = '1077098301';
-const GID_GRAF = '130998217'; // DASH DADOS
-const GID_CRON_MED = '1684801435'; // Cron MED (dados do Gantt)
-const GID_CRON_DIN = '1594302258'; // Cron DIN (dados do Gantt Dinâmico)
+// DASH DADOS
+const GID_GRAF = '130998217';
+// Cron MED (dados do Gantt)
+const GID_CRON_MED = '1684801435';
+// Cron DIN (dados do Gantt Dinâmico)
+const GID_CRON_DIN = '1594302258';
 
 // Gviz supports CORS naturally and does not require third party proxy services
 const INFO_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_INFO}`;
 const GRAF_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_GRAF}&tq=select%20*`;
 const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_MED}&tq=select%20*`;
 const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
-const GID_MED = '2090482851'; // Aba MED
+// Aba MED
+const GID_MED = '2090482851';
 // Usa ranges exatos para MED 1 (C8:ND33) e MED 2 (C38:ND64)
 const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND34`;
-const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C36:ND65`;
+const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C38:ND65`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -33,7 +37,9 @@ let fullGraficosDados = {}; // Armazena todos os dados originais
 let filteredGraficosDados = {}; // Armazena os dados filtrados para exibicao
 
 async function fetchData() {
+    console.log("Iniciando fetchData...");
     try {
+        console.log("Buscando dados das URLs...");
         const [resInfo, resGraf, resCronMed, resCronDin, resMed1, resMed2] = await Promise.all([
             fetch(INFO_URL),
             fetch(GRAF_URL),
@@ -282,7 +288,7 @@ function processarDadosGraficos(rows) {
         }
     }
     popularFiltrosDatas();
-    aplciarFiltroDatas();
+    aplicarFiltroDatas();
 }
 
 function popularFiltrosDatas() {
@@ -297,13 +303,13 @@ function popularFiltrosDatas() {
     selFim.value = fullGraficosDados.labels.length - 1;
 }
 
-function aplciarFiltroDatas() {
+function aplicarFiltroDatas() {
     const idxInicio = parseInt(document.getElementById('select-data-inicio').value);
     const idxFim = parseInt(document.getElementById('select-data-fim').value);
     if (idxInicio > idxFim) {
         alert("A data de início não pode ser posterior à data de fim.");
         document.getElementById('select-data-inicio').value = 0;
-        aplciarFiltroDatas();
+        aplicarFiltroDatas();
         return;
     }
     filteredGraficosDados = { labels: [] };
@@ -430,15 +436,16 @@ document.getElementById('select-graf-principal').addEventListener('change', () =
 document.getElementById('select-graf-secundario').addEventListener('change', () => renderChartGeneric('chartSecundario', 'select-graf-secundario'));
 
 // Eventos de Filtro de Data
-document.getElementById('select-data-inicio').addEventListener('change', aplciarFiltroDatas);
-document.getElementById('select-data-fim').addEventListener('change', aplciarFiltroDatas);
+document.getElementById('select-data-inicio').addEventListener('change', aplicarFiltroDatas);
+document.getElementById('select-data-fim').addEventListener('change', aplicarFiltroDatas);
 document.getElementById('btn-reset-filter').addEventListener('click', () => {
     document.getElementById('select-data-inicio').value = 0;
     document.getElementById('select-data-fim').value = fullGraficosDados.labels.length - 1;
-    aplciarFiltroDatas();
+    aplicarFiltroDatas();
 });
 
 function switchView(viewId, title) {
+    console.log("Chamando switchView:", viewId, title);
     currentView = viewId;
     // Atualiza o título central com o nome do menu clicado
     const headerEl = document.querySelector('.dashboard-header h1');
@@ -468,8 +475,10 @@ function switchView(viewId, title) {
 }
 
 // Adiciona event listeners a TODOS os links do menu
+console.log("Anexando event listeners aos nav-links...");
 document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', (e) => {
+        console.log("Clique detectado em:", link.textContent.trim());
         e.preventDefault();
         const title = link.textContent.trim();
         // Marca todos como inativos e ativa o clicado
@@ -679,75 +688,88 @@ function getMedRowColor(cellValue) {
 }
 
 // Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
-const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND34`;
-const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C36:ND65`;
 
 function renderMedTable(tableRows) {
-    if (!tableRows || tableRows.length === 0) return;
-    const container = document.getElementById('med-table-container');
-    
-    // Identifica linhas especiais de cabeçalho
-    const headerRows = {
-        codigo: tableRows.find(r => r[0] && r[0].includes('Código')) || tableRows.find(r => r.some(v => v === 'Código')),
-        relacao: tableRows.find(r => r[0] && r[0].includes('Relação'))
-    };
+
+    if (!tableRows || tableRows.length === 0) return '<p style="color:white;padding:20px">Nenhum dado disponível.</p>';
 
     let maxCol = 0;
     tableRows.forEach(row => { if (row.length > maxCol) maxCol = row.length - 1; });
 
+    const cleanMedText = (s) => {
+        if (!s) return '';
+        let str = s.toString().replace(/Datar/gi, '').trim();
+        // Se a string contiver 'Código' seguido de números ou apenas números
+        let numMatch = str.match(/\d+/);
+        if (numMatch && (str.toLowerCase().includes('código') || str === numMatch[0])) {
+            return `Código ${numMatch[0]}`;
+        }
+        return str;
+    };
+
+    // Mapeamento dinâmico de linhas de cabeçalho
+    let headerRowIndices = { metas: -1, servico: -1, relacao: -1, veloc: -1 };
+    tableRows.forEach((row, idx) => {
+        const first = (row[0] || '').toString().toLowerCase();
+        if (first.includes('metas ini')) headerRowIndices.metas = idx;
+        if (first.includes('serviço')) headerRowIndices.servico = idx;
+        if (first.includes('relação')) headerRowIndices.relacao = idx;
+        if (first.includes('veloc.')) headerRowIndices.veloc = idx;
+    });
+
     let html = '<table class="med-table">';
     tableRows.forEach((row, rowIdx) => {
-        const firstCellVal = (row[0] || '').trim();
+        const firstCellVal = (row[0] || '').toString().trim();
         const rowColor = getMedRowColor(firstCellVal);
-        const isHeaderLine = (firstCellVal === 'Código' || firstCellVal === 'Metas Ini' || firstCellVal === 'Fim Planejado' || firstCellVal === 'Serviço' || firstCellVal === 'Relação' || firstCellVal.includes('Veloc.'));
+        // Considera como linha de cabeçalho se for uma das linhas identificadas dinamicamente
+        // ou se estiver entre as primeiras 5 linhas (para cobrir casos genéricos)
+        const isHeaderLine = Object.values(headerRowIndices).includes(rowIdx) || rowIdx <= 4;
 
         html += '<tr>';
         for (let c = 0; c <= maxCol; c++) {
-            let val = (row[c] || '').trim();
-            let nextVal = (c + 1 <= maxCol) ? (row[c+1] || '').trim() : '';
+            let val = (row[c] || '').toString().trim();
+            const isFirstCol = (c === 0);
             
-            // LÓGICA DE UNIFICAÇÃO (LOOKAHEAD)
-            // Se encontrar "Código" na coluna >= 2, tenta mesclar com o número (val2 ou da linha Relação)
-            if (c >= 2 && val === 'Código') {
-                let foundNum = '';
-                if (nextVal !== '' && !isNaN(nextVal)) {
-                    foundNum = nextVal;
-                } else if (headerRows.relacao) {
-                    const rValue = (headerRows.relacao[c+1] || headerRows.relacao[c] || '').trim();
-                    if (rValue !== '' && !isNaN(rValue)) foundNum = rValue;
-                }
-
-                const style = rowColor ? `style="background-color:${rowColor.bg};color:${rowColor.dataText};font-weight:500"` : `style="background-color:rgba(255,255,255,0.03);color:#f8fafc;font-weight:700"`;
-                const content = foundNum ? `Código ${foundNum}` : 'Código';
-                html += `<td colspan="2" ${style}>${content}</td>`;
-                c++; // Pula a próxima coluna já que foi mesclada
+            let style = '';
+            if (rowColor) {
+                const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
+                const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
+                style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
             } else {
-                // Renderização normal de célula individual (exceto para serviços que também podem ser longos)
-                // Se a próxima célula for vazia e esta não for, e estamos em colunas de dados, pode ser um merge de serviço
-                let style = '';
-                const isFirstCol = (c === 0);
-                if (rowColor) {
-                    const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
-                    const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
-                    style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
+                const bgColor = isFirstCol ? '#1e293b' : 'rgba(255, 255, 255, 0.03)';
+                style = `style="background-color:${bgColor};color:#f8fafc;font-weight:${isFirstCol ? '700' : '500'}"`;
+            }
+
+            if (c >= 2) {
+                let content = val;
+                if (isHeaderLine) {
+                    // Especial: Reconstrução do cabeçalho de Código (geralmente row 0 ou linha de Metas)
+                    if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
+                        let relVal = '';
+                        if (headerRowIndices.relacao !== -1) {
+                            const rRow = tableRows[headerRowIndices.relacao];
+                            relVal = (rRow[c] || '').toString().trim();
+                            if (!relVal) relVal = (rRow[c+1] || '').toString().trim(); // Tenta a próxima célula se a atual estiver vazia
+                        }
+                        const numFromRel = relVal.replace(/[^\d]/g, '').trim();
+                        content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
+                    } else {
+                        // Para outras linhas de cabeçalho (Serviço, Relação, Veloc), apenas limpa o texto
+                        content = cleanMedText(val);
+                    }
+                    html += `<td colspan="2" ${style}>${content}</td>`;
                 } else {
-                    const bgColor = isFirstCol ? '#1e293b' : 'rgba(255, 255, 255, 0.03)';
-                    style = `style="background-color:${bgColor};color:#f8fafc;font-weight:${isFirstCol ? '700' : '500'}"`;
+                    html += `<td colspan="2" ${style}>${val}</td>`;
                 }
-                
-                // Se for as colunas de dados (c>=2) e a próxima for vazia, mesclamos para manter o ritmo de 2 em 2 colunas
-                if (c >= 2 && nextVal === '' && c % 2 === 0) {
-                     html += `<td colspan="2" ${style}>${val}</td>`;
-                     c++;
-                } else {
-                     html += `<td ${style}>${val}</td>`;
-                }
+                c++; 
+            } else {
+                html += `<td ${style}>${val}</td>`;
             }
         }
         html += '</tr>';
     });
     html += '</table>';
-    container.innerHTML = html;
+    document.getElementById('med-table-container').innerHTML = html;
 }
 
 // Event listeners dos botões MED 1 e MED 2
@@ -755,13 +777,13 @@ document.getElementById('btn-med-1').addEventListener('click', () => {
     medCurrentTab = 1;
     document.getElementById('btn-med-1').classList.add('active');
     document.getElementById('btn-med-2').classList.remove('active');
-    if (med1Data.length > 0) renderMedTable(med1Data);
+    renderMedTable(med1Data);
 });
 document.getElementById('btn-med-2').addEventListener('click', () => {
     medCurrentTab = 2;
     document.getElementById('btn-med-2').classList.add('active');
     document.getElementById('btn-med-1').classList.remove('active');
-    if (med2Data.length > 0) renderMedTable(med2Data);
+    renderMedTable(med2Data);
 });
 
 fetchData();
