@@ -29,6 +29,8 @@ let med2Data = [];
 let medCurrentTab = 1;
 let currentView = 'info-obra';
 let medSearchCode = null; // Armazena o código sendo buscado no MED
+let medEditMode = false;
+let medManualPatches = JSON.parse(localStorage.getItem('medManualPatches') || '{"med1":{}, "med2":{}}');
 
 // Referências Globais do Chart.js
 let chartPrincipal = null;
@@ -808,12 +810,24 @@ function renderMedTable(tableRows) {
             }
 
             let content = val;
-            // Truncagem para textos muito longos no cabeçalho
-            if (isHeaderLine && content.length > 35) {
+            
+            // Aplicar Patch Manual se existir
+            const patchKey = `${rowIdx}:${c}`;
+            const tabKey = `med${medCurrentTab}`;
+            if (medManualPatches[tabKey] && medManualPatches[tabKey][patchKey] !== undefined) {
+                content = medManualPatches[tabKey][patchKey];
+                style = style.replace('style="', 'style="border: 1px solid #ffff00; ');
+            }
+
+            // Truncagem para textos muito longos no cabeçalho (apenas se NÃO estiver em modo edição)
+            if (isHeaderLine && content.length > 35 && !medEditMode) {
                 content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
             }
 
-            html += `<td ${style}>${content}</td>`;
+            const editableAttr = medEditMode ? `contenteditable="true" data-row="${rowIdx}" data-col="${c}" class="editable-cell"` : '';
+            const editedClass = (medManualPatches[tabKey] && medManualPatches[tabKey][patchKey] !== undefined) ? ' edited-mark' : '';
+
+            html += `<td ${style} ${editableAttr} class="${editedClass}">${content}</td>`;
         });
         html += '</tr>';
     });
@@ -880,3 +894,60 @@ document.getElementById('input-med-search').addEventListener('keypress', (e) => 
 
 fetchData();
 setInterval(fetchData, 60000);
+
+// Lógica de Edição Manual
+document.getElementById('btn-med-edit').addEventListener('click', () => {
+    medEditMode = true;
+    document.getElementById('btn-med-edit').style.display = 'none';
+    document.getElementById('btn-med-save').style.display = 'inline-block';
+    document.getElementById('btn-med-cancel').style.display = 'inline-block';
+    const data = (medCurrentTab === 1) ? med1Data : med2Data;
+    renderMedTable(data);
+});
+
+document.getElementById('btn-med-save').addEventListener('click', () => {
+    const container = document.getElementById('med-table-container');
+    const tabKey = `med${medCurrentTab}`;
+    
+    container.querySelectorAll('.editable-cell').forEach(cell => {
+        const row = cell.dataset.row;
+        const col = cell.dataset.col;
+        const val = cell.innerText.trim();
+        
+        // Só salva como patch se for DIFERENTE do dado original da planilha
+        const data = (medCurrentTab === 1) ? med1Data : med2Data;
+        const originalVal = (data[row] && data[row][col]) ? data[row][col].toString().trim() : '';
+        
+        if (val !== originalVal) {
+            medManualPatches[tabKey][`${row}:${col}`] = val;
+        } else {
+            delete medManualPatches[tabKey][`${row}:${col}`];
+        }
+    });
+    
+    localStorage.setItem('medManualPatches', JSON.stringify(medManualPatches));
+    medEditMode = false;
+    exitEditModeUI();
+});
+
+document.getElementById('btn-med-cancel').addEventListener('click', () => {
+    medEditMode = false;
+    exitEditModeUI();
+});
+
+function exitEditModeUI() {
+    document.getElementById('btn-med-edit').style.display = 'inline-block';
+    document.getElementById('btn-med-save').style.display = 'none';
+    document.getElementById('btn-med-cancel').style.display = 'none';
+    const data = (medCurrentTab === 1) ? med1Data : med2Data;
+    renderMedTable(data);
+}
+
+document.getElementById('btn-med-reset').addEventListener('click', () => {
+    if (confirm('Deseja apagar TODAS as edições manuais e voltar aos dados da planilha?')) {
+        medManualPatches = {"med1":{}, "med2":{}};
+        localStorage.removeItem('medManualPatches');
+        const data = (medCurrentTab === 1) ? med1Data : med2Data;
+        renderMedTable(data);
+    }
+});
