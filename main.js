@@ -775,14 +775,21 @@ function renderMedTable(tableRows) {
                     let content = val;
                     if (isHeaderLine) {
                         if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
-                            let relVal = '';
-                            if (headerRowIndices.relacao !== -1) {
-                                const rRow = tableRows[headerRowIndices.relacao];
-                                relVal = (rRow[c] || '').toString().trim();
-                                if (!relVal) relVal = (rRow[c+1] || '').toString().trim();
+                            const nextCellVal = (row[c+1] || '').toString().trim();
+                            const numFromNext = nextCellVal.match(/\d+/);
+                            
+                            if (numFromNext) {
+                                content = `Código ${numFromNext[0]}`;
+                            } else {
+                                let relVal = '';
+                                if (headerRowIndices.relacao !== -1) {
+                                    const rRow = tableRows[headerRowIndices.relacao];
+                                    relVal = (rRow[c] || '').toString().trim();
+                                    if (!relVal) relVal = (rRow[c+1] || '').toString().trim();
+                                }
+                                const numFromRel = relVal.replace(/[^\d]/g, '').trim();
+                                content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
                             }
-                            const numFromRel = relVal.replace(/[^\d]/g, '').trim();
-                            content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
                         } else {
                             content = cleanMedText(val);
                         }
