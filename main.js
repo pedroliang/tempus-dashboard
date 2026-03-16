@@ -774,56 +774,55 @@ function renderMedTable(tableRows) {
         const rowColor = getMedRowColor(firstCellVal);
         const isHeaderLine = Object.values(headerRowIndices).includes(rowIdx) || rowIdx <= 4;
 
-        html += '<tr>';
-        visibleCols.forEach(c => {
-            if (c > maxCol) return;
-            let val = (row[c] || '').toString().trim();
-            const isFirstCol = (c === 0);
-            
-            let style = '';
-            if (rowColor) {
-                const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
-                const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
-                style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
-            } else {
-                const bgColor = isFirstCol ? '#1e293b' : 'rgba(255, 255, 255, 0.03)';
-                style = `style="background-color:${bgColor};color:#f8fafc;font-weight:${isFirstCol ? '700' : '500'}"`;
-            }
-
-            if (c >= 2) {
-                if (visibleCols.includes(c) && visibleCols.includes(c+1) && c % 2 === 0) {
-                    let content = val;
-                    if (isHeaderLine) {
-                        // Força a reconstrução do código para Metas e qualquer linha que pareça ser de identificação de código
-                        const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
-                        
-                        if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
-                            content = codeNum ? `Código ${codeNum}` : cleanMedText(val);
-                        } else if (rowIdx === headerRowIndices.relacao) {
-                            // Se for a linha de relação, mostra Código X ou o valor limpo
-                            content = codeNum ? `Código ${codeNum}` : cleanMedText(val);
-                        } else {
-                            content = cleanMedText(val);
-                        }
-                        
-                        // Aplicar truncagem se o texto for longo
-                        if (content.length > 25) {
-                            content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
-                        }
-                        
-                        html += `<td colspan="2" ${style}>${content}</td>`;
-                    } else {
-                        html += `<td colspan="2" ${style}>${val}</td>`;
-                    }
-                } else if (c % 2 !== 0) {
-                    // Pulado
-                } else {
-                    html += `<td ${style}>${val}</td>`;
-                }
-            } else {
-                html += `<td ${style}>${val}</td>`;
-            }
+        // Processar colunas fixas (0 e 1)
+        [0, 1].forEach(c => {
+            if (!visibleCols.includes(c)) return;
+            const val = (row[c] || '').toString().trim();
+            const bgColor = (c === 0) ? (rowColor ? rowColor.bgSolid : '#1e293b') : (rowColor ? rowColor.bg : 'rgba(255, 255, 255, 0.03)');
+            const textColor = (c === 0) ? (rowColor ? rowColor.text : '#f8fafc') : (rowColor ? rowColor.dataText : '#f8fafc');
+            const style = `style="background-color:${bgColor};color:${textColor};font-weight:700"`;
+            html += `<td ${style}>${val}</td>`;
         });
+
+        // Processar blocos de dados (Começando em 2, de 2 em 2)
+        for (let c = 2; c <= maxCol; c += 2) {
+            if (!visibleCols.includes(c) && !visibleCols.includes(c+1)) continue;
+
+            let val1 = (row[c] || '').toString().trim();
+            let val2 = (row[c+1] || '').toString().trim();
+            
+            const bgColor = rowColor ? rowColor.bg : 'rgba(255, 255, 255, 0.03)';
+            const textColor = rowColor ? rowColor.dataText : '#f8fafc';
+            const style = `style="background-color:${bgColor};color:${textColor};font-weight:500"`;
+
+            if (isHeaderLine) {
+                const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
+                let content = '';
+
+                if (codeNum) {
+                    content = `Código ${codeNum}`;
+                } else {
+                    const cleanV1 = cleanMedText(val1);
+                    const cleanV2 = cleanMedText(val2);
+                    if (cleanV1 && cleanV2 && cleanV1 !== cleanV2) {
+                        content = `${cleanV1} | ${cleanV2}`;
+                    } else {
+                        content = cleanV1 || cleanV2;
+                    }
+                }
+
+                if (content.length > 30) {
+                    content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
+                }
+                html += `<td colspan="2" ${style}>${content}</td>`;
+            } else {
+                if (val1 && val2 && val1 !== val2) {
+                    html += `<td colspan="2" ${style}>${val1} | ${val2}</td>`;
+                } else {
+                    html += `<td colspan="2" ${style}>${val1 || val2}</td>`;
+                }
+            }
+        }
         html += '</tr>';
     });
     html += '</table>';
