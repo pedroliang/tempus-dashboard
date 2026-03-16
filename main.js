@@ -30,7 +30,6 @@ let medCurrentTab = 1;
 let currentView = 'info-obra';
 
 // Referências Globais do Chart.js
-let donutChart = null;
 let chartPrincipal = null;
 let chartSecundario = null;
 let fullGraficosDados = {}; // Armazena todos os dados originais
@@ -192,10 +191,18 @@ function renderDashboard(rows) {
     };
     const [statusServ, pendServ] = getStatusServicos();
     const statusVal = parseFloat(statusServ.replace('%','').replace(',','.'));
-    renderDonutChart(isNaN(statusVal) ? 0 : statusVal);
-    document.getElementById('servicos-legend').innerHTML = `
-        <div class="legend-item"><span class="legend-label">Status Concluído</span><span class="legend-value highlight">${statusServ}</span></div>
-        <div class="legend-item"><span class="legend-label">Pendente</span><span class="legend-value">${pendServ}</span></div>
+    document.getElementById('servicos-obra-container').innerHTML = `
+        <div class="progress-item">
+            <div class="progress-header">
+                <span class="progress-label">PROGRESSO ATUAL</span>
+                <span class="progress-value highlight">${statusServ}</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill highlight-fill" style="width: ${isNaN(statusVal) ? 0 : statusVal}%"></div></div>
+        </div>
+        <div class="legend-item" style="margin-top:1rem;">
+            <span class="legend-label">ATIVIDADES PENDENTES</span>
+            <span class="legend-value">${pendServ}</span>
+        </div>
     `;
 
     const getStatusCritico = () => {
@@ -225,21 +232,6 @@ function renderDashboard(rows) {
     `;
 }
 
-function renderDonutChart(percent) {
-    const ctx = document.getElementById('donut-servicos').getContext('2d');
-    if (donutChart) donutChart.destroy();
-    donutChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [percent, 100 - percent],
-                backgroundColor: ['#f59e0b', 'rgba(255, 255, 255, 0.05)'],
-                borderWidth: 0
-            }]
-        },
-        options: { cutout: '75%', responsive: true, maintainAspectRatio: false, plugins: { tooltip: { enabled: false }, legend: { display: false } } }
-    });
-}
 
 function px(valStr) {
     if (valStr === undefined || valStr === null) return null;
