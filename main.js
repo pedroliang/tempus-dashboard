@@ -771,8 +771,6 @@ function renderMedTable(tableRows) {
             }
 
             if (c >= 2) {
-                // Como as colunas de dados são pares (Ini/Fim), agrupamos no render
-                // Mas apenas se ambas as colunas do bloco forem visíveis
                 if (visibleCols.includes(c) && visibleCols.includes(c+1) && c % 2 === 0) {
                     let content = val;
                     if (isHeaderLine) {
@@ -788,14 +786,19 @@ function renderMedTable(tableRows) {
                         } else {
                             content = cleanMedText(val);
                         }
+                        
+                        // Aplicar truncagem se o texto for longo
+                        if (content.length > 25) {
+                            content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
+                        }
+                        
                         html += `<td colspan="2" ${style}>${content}</td>`;
                     } else {
                         html += `<td colspan="2" ${style}>${val}</td>`;
                     }
                 } else if (c % 2 !== 0) {
-                    // Coluna ímpar é pulada porque o colspan do 'c' já a cobre
+                    // Pulado
                 } else {
-                    // Caso caia aqui por algum desalinhamento de visibleCols
                     html += `<td ${style}>${val}</td>`;
                 }
             } else {
@@ -805,7 +808,37 @@ function renderMedTable(tableRows) {
         html += '</tr>';
     });
     html += '</table>';
+    
+    // Garantir que o tooltip exista
+    if (!document.getElementById('med-info-balloon')) {
+        const balloon = document.createElement('div');
+        balloon.id = 'med-info-balloon';
+        balloon.className = 'med-info-balloon';
+        document.body.appendChild(balloon);
+    }
+    
     document.getElementById('med-table-container').innerHTML = html;
+    
+    // Adicionar listener de clique para o tooltip (delegação de evento)
+    const container = document.getElementById('med-table-container');
+    const balloon = document.getElementById('med-info-balloon');
+    
+    container.querySelectorAll('.med-text-truncate').forEach(el => {
+        el.onclick = (e) => {
+            e.stopPropagation();
+            balloon.textContent = el.getAttribute('data-fulltext');
+            balloon.style.display = 'block';
+            balloon.style.left = (e.clientX + 10) + 'px';
+            balloon.style.top = (e.clientY + 10) + 'px';
+            
+            // Fechar ao clicar fora
+            const closeBalloon = () => {
+                balloon.style.display = 'none';
+                document.removeEventListener('click', closeBalloon);
+            };
+            setTimeout(() => document.addEventListener('click', closeBalloon), 10);
+        };
+    });
 }
 
 // Event listeners dos botões MED 1 e MED 2
