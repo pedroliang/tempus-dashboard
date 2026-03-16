@@ -437,7 +437,10 @@ body {
     z-index: 3;
 }
 
-/* ========== MED Tab Styles ========== */
+.med-search-bar {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+}
 .med-btn-bar {
     display: flex;
     gap: 0.75rem;

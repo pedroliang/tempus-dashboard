@@ -28,6 +28,7 @@ let med1Data = [];
 let med2Data = [];
 let medCurrentTab = 1;
 let currentView = 'info-obra';
+let medSearchCode = null; // Armazena o código sendo buscado no MED
 
 // Referências Globais do Chart.js
 let chartPrincipal = null;
@@ -691,7 +692,6 @@ function renderMedTable(tableRows) {
     const cleanMedText = (s) => {
         if (!s) return '';
         let str = s.toString().replace(/Datar/gi, '').trim();
-        // Se a string contiver 'Código' seguido de números ou apenas números
         let numMatch = str.match(/\d+/);
         if (numMatch && (str.toLowerCase().includes('código') || str === numMatch[0])) {
             return `Código ${numMatch[0]}`;
@@ -699,7 +699,6 @@ function renderMedTable(tableRows) {
         return str;
     };
 
-    // Mapeamento dinâmico de linhas de cabeçalho
     let headerRowIndices = { metas: -1, servico: -1, relacao: -1, veloc: -1 };
     tableRows.forEach((row, idx) => {
         const first = (row[0] || '').toString().toLowerCase();
@@ -709,16 +708,55 @@ function renderMedTable(tableRows) {
         if (first.includes('veloc.')) headerRowIndices.veloc = idx;
     });
 
+    // Lógica de Filtragem de Colunas
+    let visibleCols = [0, 1]; // Colunas C e D são sempre fixas (índices 0 e 1 no CSV extraído)
+    
+    if (medSearchCode) {
+        let targetBlockIdx = -1;
+        // Percorre os blocos de colunas (cada bloco tem 2 colunas, começando no índice 2)
+        for (let c = 2; c <= maxCol; c += 2) {
+            let colCode = '';
+            // Tenta achar o código na linha de Metas ou Relação
+            const rowMetas = tableRows[headerRowIndices.metas] || tableRows[0];
+            const valMetas = (rowMetas?.[c] || '').toString().toLowerCase();
+            const numMetas = valMetas.match(/\d+/);
+            
+            const rowRel = tableRows[headerRowIndices.relacao];
+            const valRel = (rowRel?.[c] || '').toString().toLowerCase();
+            const numRel = valRel.match(/\d+/);
+            
+            if (numRel) colCode = numRel[0];
+            else if (numMetas) colCode = numMetas[0];
+
+            if (colCode === medSearchCode.toString()) {
+                targetBlockIdx = c;
+                break;
+            }
+        }
+
+        if (targetBlockIdx !== -1) {
+            // Se achou, adiciona: Bloco Anterior, Bloco Atual, Bloco Posterior
+            if (targetBlockIdx > 2) visibleCols.push(targetBlockIdx - 2, targetBlockIdx - 1);
+            visibleCols.push(targetBlockIdx, targetBlockIdx + 1);
+            if (targetBlockIdx + 2 <= maxCol) visibleCols.push(targetBlockIdx + 2, targetBlockIdx + 3);
+        } else {
+            // Se não achou o código específico, exibe tudo para não dar tela vazia
+            for (let c = 2; c <= maxCol; c++) visibleCols.push(c);
+        }
+    } else {
+        // Se sem busca, exibe tudo
+        for (let c = 2; c <= maxCol; c++) visibleCols.push(c);
+    }
+
     let html = '<table class="med-table">';
     tableRows.forEach((row, rowIdx) => {
         const firstCellVal = (row[0] || '').toString().trim();
         const rowColor = getMedRowColor(firstCellVal);
-        // Considera como linha de cabeçalho se for uma das linhas identificadas dinamicamente
-        // ou se estiver entre as primeiras 5 linhas (para cobrir casos genéricos)
         const isHeaderLine = Object.values(headerRowIndices).includes(rowIdx) || rowIdx <= 4;
 
         html += '<tr>';
-        for (let c = 0; c <= maxCol; c++) {
+        visibleCols.forEach(c => {
+            if (c > maxCol) return;
             let val = (row[c] || '').toString().trim();
             const isFirstCol = (c === 0);
             
@@ -733,31 +771,37 @@ function renderMedTable(tableRows) {
             }
 
             if (c >= 2) {
-                let content = val;
-                if (isHeaderLine) {
-                    // Especial: Reconstrução do cabeçalho de Código (geralmente row 0 ou linha de Metas)
-                    if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
-                        let relVal = '';
-                        if (headerRowIndices.relacao !== -1) {
-                            const rRow = tableRows[headerRowIndices.relacao];
-                            relVal = (rRow[c] || '').toString().trim();
-                            if (!relVal) relVal = (rRow[c+1] || '').toString().trim(); // Tenta a próxima célula se a atual estiver vazia
+                // Como as colunas de dados são pares (Ini/Fim), agrupamos no render
+                // Mas apenas se ambas as colunas do bloco forem visíveis
+                if (visibleCols.includes(c) && visibleCols.includes(c+1) && c % 2 === 0) {
+                    let content = val;
+                    if (isHeaderLine) {
+                        if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
+                            let relVal = '';
+                            if (headerRowIndices.relacao !== -1) {
+                                const rRow = tableRows[headerRowIndices.relacao];
+                                relVal = (rRow[c] || '').toString().trim();
+                                if (!relVal) relVal = (rRow[c+1] || '').toString().trim();
+                            }
+                            const numFromRel = relVal.replace(/[^\d]/g, '').trim();
+                            content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
+                        } else {
+                            content = cleanMedText(val);
                         }
-                        const numFromRel = relVal.replace(/[^\d]/g, '').trim();
-                        content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
+                        html += `<td colspan="2" ${style}>${content}</td>`;
                     } else {
-                        // Para outras linhas de cabeçalho (Serviço, Relação, Veloc), apenas limpa o texto
-                        content = cleanMedText(val);
+                        html += `<td colspan="2" ${style}>${val}</td>`;
                     }
-                    html += `<td colspan="2" ${style}>${content}</td>`;
+                } else if (c % 2 !== 0) {
+                    // Coluna ímpar é pulada porque o colspan do 'c' já a cobre
                 } else {
-                    html += `<td colspan="2" ${style}>${val}</td>`;
+                    // Caso caia aqui por algum desalinhamento de visibleCols
+                    html += `<td ${style}>${val}</td>`;
                 }
-                c++; 
             } else {
                 html += `<td ${style}>${val}</td>`;
             }
-        }
+        });
         html += '</tr>';
     });
     html += '</table>';
@@ -776,6 +820,25 @@ document.getElementById('btn-med-2').addEventListener('click', () => {
     document.getElementById('btn-med-2').classList.add('active');
     document.getElementById('btn-med-1').classList.remove('active');
     renderMedTable(med2Data);
+});
+
+// Eventos de Busca no MED
+document.getElementById('btn-med-search').addEventListener('click', () => {
+    const val = document.getElementById('input-med-search').value.trim();
+    if (val) {
+        medSearchCode = val;
+        const data = (medCurrentTab === 1) ? med1Data : med2Data;
+        renderMedTable(data);
+    }
+});
+document.getElementById('btn-med-clear').addEventListener('click', () => {
+    medSearchCode = null;
+    document.getElementById('input-med-search').value = '';
+    const data = (medCurrentTab === 1) ? med1Data : med2Data;
+    renderMedTable(data);
+});
+document.getElementById('input-med-search').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-med-search').click();
 });
 
 fetchData();
