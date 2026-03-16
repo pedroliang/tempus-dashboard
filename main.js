@@ -14,9 +14,9 @@ const CRON_MED_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq
 const CRON_DIN_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_CRON_DIN}&tq=select%20*`;
 // Aba MED
 const GID_MED = '2090482851';
-// Usa ranges exatos para MED 1 (C8:ND33) e MED 2 (C38:ND64)
-const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C8:ND34`;
-const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_MED}&range=C38:ND65`;
+// Usa ranges exatos para MED 1 (C8:ND34) e MED 2 (C38:ND65) e agora usa out:json para precisão total
+const MED1_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID_MED}&range=C8:ND34`;
+const MED2_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID_MED}&range=C38:ND65`;
 
 let sheetData = [];
 let dashGrafData = [];
@@ -59,8 +59,8 @@ async function fetchData() {
         dashGrafData = parseCSV(textGraf);
         cronMedData = parseCSV(textCronMed);
         cronDinData = parseCSV(textCronDin);
-        med1Data = parseCSV(textMed1);
-        med2Data = parseCSV(textMed2);
+        med1Data = parseGvizJSON(textMed1);
+        med2Data = parseGvizJSON(textMed2);
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
@@ -69,6 +69,31 @@ async function fetchData() {
         if (cronDinData.length > 0) renderGanttChart(cronDinData, 'gantt-din-chart-container');
     } catch (error) {
         console.error('Erro ao buscar dados:', error);
+    }
+}
+
+function parseGvizJSON(text) {
+    try {
+        // A API Gviz retorna google.visualization.Query.setResponse({...});
+        const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+        if (!jsonMatch) return [];
+        const obj = JSON.parse(jsonMatch[1]);
+        const data = obj.table;
+        const rows = [];
+        
+        data.rows.forEach(r => {
+            const rowArr = [];
+            r.c.forEach(cell => {
+                // v é o valor bruto, f é o valor formatado (o que aparece na planilha)
+                // Preferimos f se existir para manter a formatação da data/texto da planilha
+                rowArr.push(cell ? (cell.f !== undefined ? cell.f : (cell.v !== null ? cell.v : '')) : '');
+            });
+            rows.push(rowArr);
+        });
+        return rows;
+    } catch (e) {
+        console.error("Erro ao parsear Gviz JSON:", e);
+        return [];
     }
 }
 
@@ -716,21 +741,10 @@ function getCodeNumberFromBlock(tableRows, headerRowIndices, c) {
 }
 
 function renderMedTable(tableRows) {
-
     if (!tableRows || tableRows.length === 0) return '<p style="color:white;padding:20px">Nenhum dado disponível.</p>';
 
     let maxCol = 0;
     tableRows.forEach(row => { if (row.length > maxCol) maxCol = row.length - 1; });
-
-    const cleanMedText = (s) => {
-        if (!s) return '';
-        let str = s.toString().replace(/Datar/gi, '').trim();
-        let numMatch = str.match(/\d+/);
-        if (numMatch && (str.toLowerCase().includes('código') || str === numMatch[0])) {
-            return `Código ${numMatch[0]}`;
-        }
-        return str;
-    };
 
     let headerRowIndices = { metas: -1, servico: -1, relacao: -1, veloc: -1 };
     tableRows.forEach((row, idx) => {
@@ -741,32 +755,35 @@ function renderMedTable(tableRows) {
         if (first.includes('veloc.')) headerRowIndices.veloc = idx;
     });
 
-    // Lógica de Filtragem de Colunas
-    let visibleCols = [0, 1]; // Colunas C e D são sempre fixas (índices 0 e 1 no CSV extraído)
+    // Lógica de Filtragem de Colunas: Agora baseada em JSON literal
+    let visibleCols = [0, 1]; // Mantém as duas primeiras colunas sempre visíveis
     
     if (medSearchCode) {
-        let targetBlockIdx = -1;
-        for (let c = 2; c <= maxCol; c += 2) {
-            const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
-            if (codeNum === medSearchCode.toString()) {
-                targetBlockIdx = c;
+        let targetColIdx = -1;
+        for (let c = 2; c <= maxCol; c++) {
+            // No JSON, o código pode estar em qualquer linha de cabeçalho
+            const headerVals = tableRows.slice(0, 5).map(r => (r[c] || '').toString());
+            const relVal = (tableRows[headerRowIndices.relacao]?.[c] || '').toString();
+            const combined = headerVals.join(' ') + ' ' + relVal;
+            const match = combined.match(/\d+/);
+            if (match && match[0] === medSearchCode.toString()) {
+                targetColIdx = c;
                 break;
             }
         }
 
-        if (targetBlockIdx !== -1) {
-            // Se achou, adiciona: Bloco Anterior, Bloco Atual, Bloco Posterior
-            if (targetBlockIdx > 2) visibleCols.push(targetBlockIdx - 2, targetBlockIdx - 1);
-            visibleCols.push(targetBlockIdx, targetBlockIdx + 1);
-            if (targetBlockIdx + 2 <= maxCol) visibleCols.push(targetBlockIdx + 2, targetBlockIdx + 3);
+        if (targetColIdx !== -1) {
+            // Adiciona a coluna do código e suas vizinhas para contexto (ex: 4 vizinhas de cada lado)
+            for (let i = targetColIdx - 4; i <= targetColIdx + 4; i++) {
+                if (i >= 2 && i <= maxCol) visibleCols.push(i);
+            }
         } else {
-            // Se não achou o código específico, exibe tudo para não dar tela vazia
             for (let c = 2; c <= maxCol; c++) visibleCols.push(c);
         }
     } else {
-        // Se sem busca, exibe tudo
         for (let c = 2; c <= maxCol; c++) visibleCols.push(c);
     }
+    visibleCols = [...new Set(visibleCols)].sort((a, b) => a - b);
 
     let html = '<table class="med-table">';
     tableRows.forEach((row, rowIdx) => {
@@ -774,60 +791,35 @@ function renderMedTable(tableRows) {
         const rowColor = getMedRowColor(firstCellVal);
         const isHeaderLine = Object.values(headerRowIndices).includes(rowIdx) || rowIdx <= 4;
 
-        // Processar colunas fixas (0 e 1)
-        [0, 1].forEach(c => {
-            if (!visibleCols.includes(c)) return;
+        html += '<tr>';
+        visibleCols.forEach(c => {
+            if (c > maxCol) return;
             const val = (row[c] || '').toString().trim();
-            const bgColor = (c === 0) ? (rowColor ? rowColor.bgSolid : '#1e293b') : (rowColor ? rowColor.bg : 'rgba(255, 255, 255, 0.03)');
-            const textColor = (c === 0) ? (rowColor ? rowColor.text : '#f8fafc') : (rowColor ? rowColor.dataText : '#f8fafc');
-            const style = `style="background-color:${bgColor};color:${textColor};font-weight:700"`;
-            html += `<td ${style}>${val}</td>`;
-        });
-
-        // Processar blocos de dados (Começando em 2, de 2 em 2)
-        for (let c = 2; c <= maxCol; c += 2) {
-            if (!visibleCols.includes(c) && !visibleCols.includes(c+1)) continue;
-
-            let val1 = (row[c] || '').toString().trim();
-            let val2 = (row[c+1] || '').toString().trim();
+            const isFirstCol = (c === 0);
             
-            const bgColor = rowColor ? rowColor.bg : 'rgba(255, 255, 255, 0.03)';
-            const textColor = rowColor ? rowColor.dataText : '#f8fafc';
-            const style = `style="background-color:${bgColor};color:${textColor};font-weight:500"`;
-
-            if (isHeaderLine) {
-                const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
-                let content = '';
-
-                if (codeNum) {
-                    content = `Código ${codeNum}`;
-                } else {
-                    const cleanV1 = cleanMedText(val1);
-                    const cleanV2 = cleanMedText(val2);
-                    if (cleanV1 && cleanV2 && cleanV1 !== cleanV2) {
-                        content = `${cleanV1} | ${cleanV2}`;
-                    } else {
-                        content = cleanV1 || cleanV2;
-                    }
-                }
-
-                if (content.length > 30) {
-                    content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
-                }
-                html += `<td colspan="2" ${style}>${content}</td>`;
+            let style = '';
+            if (rowColor) {
+                const bgColor = isFirstCol ? rowColor.bgSolid : rowColor.bg;
+                const textColor = isFirstCol ? rowColor.text : rowColor.dataText;
+                style = `style="background-color:${bgColor};color:${textColor};font-weight:${isFirstCol ? '700' : '500'}"`;
             } else {
-                if (val1 && val2 && val1 !== val2) {
-                    html += `<td colspan="2" ${style}>${val1} | ${val2}</td>`;
-                } else {
-                    html += `<td colspan="2" ${style}>${val1 || val2}</td>`;
-                }
+                const bgColor = isFirstCol ? '#1e293b' : 'rgba(255, 255, 255, 0.03)';
+                style = `style="background-color:${bgColor};color:#f8fafc;font-weight:${isFirstCol ? '700' : '500'}"`;
             }
-        }
+
+            let content = val;
+            // Truncagem para textos muito longos no cabeçalho
+            if (isHeaderLine && content.length > 35) {
+                content = `<span class="med-text-truncate" data-fulltext="${content.replace(/"/g, '&quot;')}">${content}</span>`;
+            }
+
+            html += `<td ${style}>${content}</td>`;
+        });
         html += '</tr>';
     });
     html += '</table>';
     
-    // Garantir que o tooltip exista
+    // Garantir tooltip
     if (!document.getElementById('med-info-balloon')) {
         const balloon = document.createElement('div');
         balloon.id = 'med-info-balloon';
@@ -837,10 +829,9 @@ function renderMedTable(tableRows) {
     
     document.getElementById('med-table-container').innerHTML = html;
     
-    // Adicionar listener de clique para o tooltip (delegação de evento)
+    // Listeners do tooltip
     const container = document.getElementById('med-table-container');
     const balloon = document.getElementById('med-info-balloon');
-    
     container.querySelectorAll('.med-text-truncate').forEach(el => {
         el.onclick = (e) => {
             e.stopPropagation();
@@ -848,13 +839,8 @@ function renderMedTable(tableRows) {
             balloon.style.display = 'block';
             balloon.style.left = (e.clientX + 10) + 'px';
             balloon.style.top = (e.clientY + 10) + 'px';
-            
-            // Fechar ao clicar fora
-            const closeBalloon = () => {
-                balloon.style.display = 'none';
-                document.removeEventListener('click', closeBalloon);
-            };
-            setTimeout(() => document.addEventListener('click', closeBalloon), 10);
+            const close = () => { balloon.style.display = 'none'; document.removeEventListener('click', close); };
+            setTimeout(() => document.addEventListener('click', close), 10);
         };
     });
 }
