@@ -682,6 +682,39 @@ function getMedRowColor(cellValue) {
 
 // Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
 
+// Função auxiliar para extrair o número do código de um bloco de colunas (c e c+1)
+function getCodeNumberFromBlock(tableRows, headerRowIndices, c) {
+    const rowIdxs = [
+        headerRowIndices.metas,
+        headerRowIndices.relacao,
+        headerRowIndices.veloc,
+        0, 1, 2, 3, 4 // Fallback para as primeiras linhas
+    ];
+    
+    for (const idx of rowIdxs) {
+        if (idx === -1 || idx === undefined || !tableRows[idx]) continue;
+        const r = tableRows[idx];
+        
+        const v1 = (r[c] || '').toString().trim();
+        const v2 = (r[c+1] || '').toString().trim();
+        
+        // Caso 1: Célula v1 já contém o número (ex: "Código 20" ou "20")
+        const m1 = v1.match(/\d+/);
+        if (m1) {
+            // Se for só o número ou tiver "Código", retorna apenas o número
+            if (v1.toLowerCase().includes('código') || v1 === m1[0] || v1.length < 10) return m1[0];
+        }
+        
+        // Caso 2: Célula v1 é "Código" e v2 contém o número
+        const m2 = v2.match(/\d+/);
+        if (m2 && (v1.toLowerCase().includes('código') || v1 === '')) return m2[0];
+        
+        // Caso 3: Célula v2 contém o número e v1 é irrelevante (ex: "Empresa", "Datar")
+        if (m2 && v2.length < 10 && !v2.toLowerCase().includes('/')) return m2[0];
+    }
+    return null;
+}
+
 function renderMedTable(tableRows) {
 
     if (!tableRows || tableRows.length === 0) return '<p style="color:white;padding:20px">Nenhum dado disponível.</p>';
@@ -713,22 +746,9 @@ function renderMedTable(tableRows) {
     
     if (medSearchCode) {
         let targetBlockIdx = -1;
-        // Percorre os blocos de colunas (cada bloco tem 2 colunas, começando no índice 2)
         for (let c = 2; c <= maxCol; c += 2) {
-            let colCode = '';
-            // Tenta achar o código na linha de Metas ou Relação
-            const rowMetas = tableRows[headerRowIndices.metas] || tableRows[0];
-            const valMetas = (rowMetas?.[c] || '').toString().toLowerCase();
-            const numMetas = valMetas.match(/\d+/);
-            
-            const rowRel = tableRows[headerRowIndices.relacao];
-            const valRel = (rowRel?.[c] || '').toString().toLowerCase();
-            const numRel = valRel.match(/\d+/);
-            
-            if (numRel) colCode = numRel[0];
-            else if (numMetas) colCode = numMetas[0];
-
-            if (colCode === medSearchCode.toString()) {
+            const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
+            if (codeNum === medSearchCode.toString()) {
                 targetBlockIdx = c;
                 break;
             }
@@ -774,22 +794,14 @@ function renderMedTable(tableRows) {
                 if (visibleCols.includes(c) && visibleCols.includes(c+1) && c % 2 === 0) {
                     let content = val;
                     if (isHeaderLine) {
+                        // Força a reconstrução do código para Metas e qualquer linha que pareça ser de identificação de código
+                        const codeNum = getCodeNumberFromBlock(tableRows, headerRowIndices, c);
+                        
                         if (rowIdx === 0 || rowIdx === headerRowIndices.metas) {
-                            const nextCellVal = (row[c+1] || '').toString().trim();
-                            const numFromNext = nextCellVal.match(/\d+/);
-                            
-                            if (numFromNext) {
-                                content = `Código ${numFromNext[0]}`;
-                            } else {
-                                let relVal = '';
-                                if (headerRowIndices.relacao !== -1) {
-                                    const rRow = tableRows[headerRowIndices.relacao];
-                                    relVal = (rRow[c] || '').toString().trim();
-                                    if (!relVal) relVal = (rRow[c+1] || '').toString().trim();
-                                }
-                                const numFromRel = relVal.replace(/[^\d]/g, '').trim();
-                                content = numFromRel ? `Código ${numFromRel}` : cleanMedText(val);
-                            }
+                            content = codeNum ? `Código ${codeNum}` : cleanMedText(val);
+                        } else if (rowIdx === headerRowIndices.relacao) {
+                            // Se for a linha de relação, mostra Código X ou o valor limpo
+                            content = codeNum ? `Código ${codeNum}` : cleanMedText(val);
                         } else {
                             content = cleanMedText(val);
                         }
