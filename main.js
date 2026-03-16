@@ -201,7 +201,7 @@ function renderDashboard(rows) {
         </div>
         <div class="legend-item" style="margin-top:1rem;">
             <span class="legend-label">ATIVIDADES PENDENTES</span>
-            <span class="legend-value">${pendServ}</span>
+            <span class="legend-value danger">${pendServ}</span>
         </div>
     `;
 
@@ -227,7 +227,7 @@ function renderDashboard(rows) {
         </div>
         <div class="legend-item" style="margin-top:1rem;">
             <span class="legend-label">ATIVIDADES PENDENTES</span>
-            <span class="legend-value">${criticoPend}</span>
+            <span class="legend-value danger">${criticoPend}</span>
         </div>
     `;
 }

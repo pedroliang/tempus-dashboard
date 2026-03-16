@@ -153,7 +153,8 @@ body {
 .legend-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
 .legend-label { color: #94a3b8; font-weight: 500; }
 .legend-value { font-weight: 600; color: #f8fafc; }
-.legend-value.highlight { color: #f59e0b; }
+.legend-value.highlight { color: #00ff9d; } /* Verde Brilhante */
+.legend-value.danger { color: #ff4d4d; text-shadow: 0 0 10px rgba(255, 77, 77, 0.4); } /* Vermelho Vibrante */
 
 /* Cards de Prazo */
 .schedule-cards { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -179,10 +180,10 @@ body {
 .progress-header { display: flex; justify-content: space-between; align-items: center; }
 .progress-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
 .progress-value { font-size: 0.85rem; font-weight: 700; color: #f8fafc; }
-.progress-value.highlight { color: #f59e0b; }
+.progress-value.highlight { color: #00ff9d; } /* Verde Brilhante */
 .progress-track { width: 100%; height: 8px; background: #ffffff0d; border-radius: 4px; overflow: hidden; }
 .progress-fill { height: 100%; background: #ffffff33; border-radius: 4px; transition: width 1s ease; }
-.progress-fill.highlight-fill { background: #f59e0b; box-shadow: 0 0 10px #f59e0b80; }
+.progress-fill.highlight-fill { background: #00ff9d; box-shadow: 0 0 12px #00ff9d80; }
 
 .view-container { display: none; }
 
