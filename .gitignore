@@ -1,0 +1,16 @@
+backups/
+backups/*
+.gemini/
+.antigravityignore
+*.ps1
+debug_*.js
+dump_*.js
+probe_*.js
+extract_gids.js
+find_gids.js
+full_inspect.js
+download_*.js
+test_*.js
+obra_export.csv
+obracsv*.csv
+sheet_html.txt

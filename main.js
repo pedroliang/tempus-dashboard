@@ -42,13 +42,14 @@ async function fetchData() {
     console.log("Iniciando fetchData...");
     try {
         console.log("Buscando dados das URLs...");
-        const [resInfo, resGraf, resCronMed, resCronDin, resMed1, resMed2] = await Promise.all([
+        const [resInfo, resGraf, resCronMed, resCronDin, resMed1, resMed2, resMedHtml] = await Promise.all([
             fetch(INFO_URL),
             fetch(GRAF_URL),
             fetch(CRON_MED_URL),
             fetch(CRON_DIN_URL),
             fetch(MED1_URL),
-            fetch(MED2_URL)
+            fetch(MED2_URL),
+            fetch('MED.html').catch(() => null)
         ]);
         const textInfo = await resInfo.text();
         const textGraf = await resGraf.text();
@@ -56,13 +57,31 @@ async function fetchData() {
         const textCronDin = await resCronDin.text();
         const textMed1 = await resMed1.text();
         const textMed2 = await resMed2.text();
+        let textMedHtml = null;
+        if (resMedHtml && resMedHtml.ok) {
+            textMedHtml = await resMedHtml.text();
+            console.log("MED.html carregado com sucesso.");
+        }
         
         sheetData = parseCSV(textInfo);
         dashGrafData = parseCSV(textGraf);
         cronMedData = parseCSV(textCronMed);
         cronDinData = parseCSV(textCronDin);
-        med1Data = parseGvizJSON(textMed1);
-        med2Data = parseGvizJSON(textMed2);
+
+        if (textMedHtml) {
+            const medMatrix = parseHTMLToMatrix(textMedHtml);
+            if (medMatrix.length > 0) {
+                console.log("Usando dados do MED.html (Matriz reconstruída)");
+                med1Data = medMatrix;
+                med2Data = medMatrix; // Temporariamente usando o mesmo para ambos se for o único arquivo
+            } else {
+                med1Data = parseGvizJSON(textMed1);
+                med2Data = parseGvizJSON(textMed2);
+            }
+        } else {
+            med1Data = parseGvizJSON(textMed1);
+            med2Data = parseGvizJSON(textMed2);
+        }
         
         renderDashboard(sheetData);
         processarDadosGraficos(dashGrafData);
@@ -126,6 +145,60 @@ function parseCSV(text) {
     }
     if (curField || curRow.length) { curRow.push(curField.trim()); rows.push(curRow); }
     return rows;
+}
+
+/**
+ * Reconstrói uma matriz de dados a partir de um HTML de tabela do Google Sheets.
+ * Lida com 'rowspan' e 'colspan' para garantir o mapeamento 1:1.
+ */
+function parseHTMLToMatrix(htmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+    const table = doc.querySelector('.waffle');
+    if (!table) return [];
+
+    const rows = table.querySelectorAll('tr');
+    const matrix = [];
+
+    rows.forEach((tr, rowIndex) => {
+        const cells = tr.querySelectorAll('td'); // Pula os TH (row numbers)
+        let colIndex = 0;
+
+        cells.forEach((td) => {
+            const rowspan = parseInt(td.getAttribute('rowspan')) || 1;
+            const colspan = parseInt(td.getAttribute('colspan')) || 1;
+            const content = td.innerText.trim();
+
+            // Encontra a próxima coluna disponível no mapeamento atual
+            while (matrix[rowIndex] && matrix[rowIndex][colIndex] !== undefined) {
+                colIndex++;
+            }
+
+            // Preenche a matriz com o conteúdo, expandindo rowspan e colspan
+            for (let r = 0; r < rowspan; r++) {
+                const targetRow = rowIndex + r;
+                if (!matrix[targetRow]) matrix[targetRow] = [];
+                for (let c = 0; c < colspan; c++) {
+                    matrix[targetRow][colIndex + c] = (r === 0 && c === 0) ? content : "";
+                }
+            }
+            colIndex += colspan;
+        });
+    });
+
+    // Filtra linhas nulas e normaliza o tamanho das colunas (converte sparse array para denso)
+    return matrix.filter(row => row !== undefined).map(row => {
+        const rowArr = [];
+        let maxLen = 0;
+        for (let key in row) {
+            const idx = parseInt(key);
+            if (idx >= maxLen) maxLen = idx + 1;
+        }
+        for (let i = 0; i < maxLen; i++) {
+            rowArr[i] = row[i] === undefined ? "" : row[i];
+        }
+        return rowArr;
+    });
 }
 
 function renderDashboard(rows) {
@@ -709,35 +782,36 @@ function getMedRowColor(cellValue) {
 
 // Coluna ND em 0-indexed = 367 (N=14, D=4 => (14-1)*26 + 4 - 1 = 367)
 
-// Função auxiliar para extrair o número do código de um bloco de colunas (c e c+1)
-function getCodeNumberFromBlock(tableRows, headerRowIndices, c) {
-    const rowIdxs = [
-        headerRowIndices.metas,
-        headerRowIndices.relacao,
-        headerRowIndices.veloc,
-        0, 1, 2, 3, 4 // Fallback para as primeiras linhas
-    ];
+// Função auxiliar para extrair o número do código de um bloco de colunas (c e c+1 se c for par, ou c-1 e c se c for ímpar)
+function getCodeNumberFromBlock(tableRows, c) {
+    if (c < 2) return null;
+    
+    // Identifica as colunas do par (sempre começando pela coluna par >= 2)
+    const colA = (c % 2 === 0) ? c : c - 1;
+    const colB = colA + 1;
+
+    // Linhas onde o código costuma aparecer (Metas, Relação, Veloc e as primeiras 10 linhas)
+    const rowIdxs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     
     for (const idx of rowIdxs) {
-        if (idx === -1 || idx === undefined || !tableRows[idx]) continue;
+        if (!tableRows[idx]) continue;
         const r = tableRows[idx];
         
-        const v1 = (r[c] || '').toString().trim();
-        const v2 = (r[c+1] || '').toString().trim();
+        const v1 = (r[colA] || '').toString().trim();
+        const v2 = (r[colB] || '').toString().trim();
         
-        // Caso 1: Célula v1 já contém o número (ex: "Código 20" ou "20")
-        const m1 = v1.match(/\d+/);
-        if (m1) {
-            // Se for só o número ou tiver "Código", retorna apenas o número
-            if (v1.toLowerCase().includes('código') || v1 === m1[0] || v1.length < 10) return m1[0];
+        // Tenta encontrar número em v1 ou v2 ou na combinação deles
+        const combined = (v1 + ' ' + v2).toLowerCase();
+        if (combined.includes('código')) {
+            const match = combined.match(/\d+/);
+            if (match) return match[0];
+        } else {
+            // Se não tem a palavra código, mas tem um número isolado e curto (ex: "50")
+            const m1 = v1.match(/^\d+$/);
+            if (m1) return m1[0];
+            const m2 = v2.match(/^\d+$/);
+            if (m2) return m2[0];
         }
-        
-        // Caso 2: Célula v1 é "Código" e v2 contém o número
-        const m2 = v2.match(/\d+/);
-        if (m2 && (v1.toLowerCase().includes('código') || v1 === '')) return m2[0];
-        
-        // Caso 3: Célula v2 contém o número e v1 é irrelevante (ex: "Empresa", "Datar")
-        if (m2 && v2.length < 10 && !v2.toLowerCase().includes('/')) return m2[0];
     }
     return null;
 }
@@ -750,35 +824,37 @@ function renderMedTable(tableRows) {
 
     let headerRowIndices = { metas: -1, servico: -1, relacao: -1, veloc: -1 };
     tableRows.forEach((row, idx) => {
-        const first = (row[0] || '').toString().toLowerCase();
-        if (first.includes('metas ini')) headerRowIndices.metas = idx;
-        if (first.includes('serviço')) headerRowIndices.servico = idx;
-        if (first.includes('relação')) headerRowIndices.relacao = idx;
-        if (first.includes('veloc.')) headerRowIndices.veloc = idx;
+        // No HTML exportado, a primeira coluna costuma ser vazia, então checamos row[0] e row[1]
+        const col0 = (row[0] || '').toString().toLowerCase();
+        const col1 = (row[1] || '').toString().toLowerCase();
+        
+        if (col0.includes('metas ini') || col1.includes('metas ini')) headerRowIndices.metas = idx;
+        if (col0.includes('serviço') || col1.includes('serviço')) headerRowIndices.servico = idx;
+        if (col0.includes('relação') || col1.includes('relação')) headerRowIndices.relacao = idx;
+        if (col0.includes('veloc.') || col1.includes('veloc.')) headerRowIndices.veloc = idx;
     });
 
     // Lógica de Filtragem de Colunas: Agora baseada em JSON literal
     let visibleCols = [0, 1]; // Mantém as duas primeiras colunas sempre visíveis
     
     if (medSearchCode) {
-        let targetColIdx = -1;
+        let targetCols = [];
         for (let c = 2; c <= maxCol; c++) {
-            // No JSON, o código pode estar em qualquer linha de cabeçalho
-            const headerVals = tableRows.slice(0, 5).map(r => (r[c] || '').toString());
-            const relVal = (tableRows[headerRowIndices.relacao]?.[c] || '').toString();
-            const combined = headerVals.join(' ') + ' ' + relVal;
-            const match = combined.match(/\d+/);
-            if (match && match[0] === medSearchCode.toString()) {
-                targetColIdx = c;
-                break;
+            const codeFound = getCodeNumberFromBlock(tableRows, c);
+            if (codeFound === medSearchCode.toString()) {
+                // Se o código bate, garante o par de colunas (par e ímpar)
+                const pairStart = (c % 2 === 0) ? c : c - 1;
+                targetCols.push(pairStart, pairStart + 1);
             }
         }
 
-        if (targetColIdx !== -1) {
-            // Adiciona a coluna do código e suas vizinhas para contexto (ex: 4 vizinhas de cada lado)
-            for (let i = targetColIdx - 4; i <= targetColIdx + 4; i++) {
-                if (i >= 2 && i <= maxCol) visibleCols.push(i);
-            }
+        if (targetCols.length > 0) {
+            // Adiciona as colunas encontradas e vizinhas para contexto
+            targetCols.forEach(tc => {
+                for (let i = tc - 2; i <= tc + 2; i++) {
+                    if (i >= 2 && i <= maxCol) visibleCols.push(i);
+                }
+            });
         } else {
             for (let c = 2; c <= maxCol; c++) visibleCols.push(c);
         }
@@ -789,6 +865,14 @@ function renderMedTable(tableRows) {
 
     let html = '<table class="med-table">';
     tableRows.forEach((row, rowIdx) => {
+        // Filtro para remover linhas indesejadas (SIM/NÃO) acima do código
+        const rowString = row.join(' ').toUpperCase();
+        const hasOnlySimNao = row.some(c => (c||'').toString().toUpperCase() === 'SIM' || (c||'').toString().toUpperCase() === 'NÃO');
+        const isActuallyData = row.some(c => /\d{2}\/\d{2}\/\d{2,4}/.test(c)); // Se tem data, é importante
+        
+        // Se a linha tem SIM/NÃO e NÃO tem dados importantes (como datas) e está no topo, ignoramos
+        if (hasOnlySimNao && !isActuallyData && rowIdx < 5) return;
+
         const firstCellVal = (row[0] || '').toString().trim();
         const rowColor = getMedRowColor(firstCellVal);
         const isHeaderLine = Object.values(headerRowIndices).includes(rowIdx) || rowIdx <= 4;
@@ -811,6 +895,16 @@ function renderMedTable(tableRows) {
 
             let content = val;
             
+            // Especial: Se estiver na linha de "Código" ou similar e for um par de colunas
+            // podemos tentar mostrar o "Código X" de forma mais clara
+            if (rowIdx === headerRowIndices.metas && c >= 2) {
+                const code = getCodeNumberFromBlock(tableRows, c);
+                if (code) {
+                    const label = (c % 2 === 0) ? `Cód. ${code}` : 'Fim'; // Simplificação visual
+                    if (val === '') content = label;
+                }
+            }
+
             // Aplicar Patch Manual se existir
             const patchKey = `${rowIdx}:${c}`;
             const tabKey = `med${medCurrentTab}`;

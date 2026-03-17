@@ -581,3 +581,9 @@ body {
     border-width: 0 5px 5px 0;
     border-color: transparent #ffff00 transparent transparent;
 }
+
+/* Ajuste de Proporcionalidade Tabela MED */
+.med-table td:not(:first-child) {
+    min-width: 90px;
+    max-width: 150px;
+}
